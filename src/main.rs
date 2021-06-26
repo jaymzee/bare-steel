@@ -12,10 +12,17 @@ use blog_os::println;
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    println!("some numbers: {} {}", 42, 1.337);
+    println!("Hello, World!");
+    println!("exceptions");
+
+    blog_os::init();
+
+    x86_64::instructions::interrupts::int3();
 
     #[cfg(test)]
     test_main();
+
+    println!("It did not crash!");
 
     loop {}
 }
@@ -39,4 +46,9 @@ fn panic(info: &PanicInfo) -> ! {
 #[test_case]
 fn trivial_assertion() {
     assert_eq!(1, 1);
+}
+
+#[test_case]
+fn basic_assertion() {
+    assert_eq!(2, 2);
 }
