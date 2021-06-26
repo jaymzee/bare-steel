@@ -14,5 +14,8 @@ panic = "abort" # disable stack unwinding on panic
 [profile.release]
 panic = "abort" # disable stack unwinding on pain
 
+[package.metadata.bootimage]
+run-args = ["-m", "16"]
+
 [dependencies]
-bootloader = "0.9.8"
+bootloader = "0.9.18"
