@@ -5,18 +5,21 @@
 
 use core::panic::PanicInfo;
 
-static HELLO: &[u8] = b"Hello World!";
+fn locate_text(row: u8, col: u8, s: &[u8]) {
+    let vga_buffer = 0xb8000 as *mut u8;
+    for (i, &byte) in s.iter().enumerate() {
+        unsafe {
+            let dx = row as isize * 80 + col as isize + i as isize;
+            *vga_buffer.offset(2 * dx) = byte;
+            *vga_buffer.offset(2 * dx + 1) = 0xb; // set attribute
+        }
+    }
+}
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    let vga_buffer = 0xb8000 as *mut u8;
-
-    for (i, &byte) in HELLO.iter().enumerate() {
-        unsafe {
-            *vga_buffer.offset(i as isize * 2) = byte;
-            *vga_buffer.offset(i as isize * 2 + 1) = 0xb;
-        }
-    }
+    locate_text(0, 0, b"Hello, World!");
+    locate_text(1, 5, b"Goodbye");
 
     loop {}
 }
