@@ -98,6 +98,7 @@ impl Writer {
                     color_code,
                 });
                 self.column_position += 1;
+                //locate_cursor(row as u32, self.column_position as u32);
             }
         }
     }
@@ -140,6 +141,26 @@ impl Writer {
             self.buffer.chars[row][col].write(blank);
         }
     }
+}
+
+fn locate_cursor(x: u32, y: u32) {
+    use x86_64::instructions::port::Port;
+
+    let offset = BUFFER_WIDTH as u32 * y + x;
+    let mut addr = Port::new(0x3D4);
+    let mut data = Port::new(0x3D5);
+    const cursor_loc_lo: u8 = 0x0E;
+    const cursor_loc_hi: u8 = 0x0F;
+
+    unsafe {
+        addr.write(cursor_loc_lo);   // cursor location lo
+        //data.write((offset & 0xFF) as u8);
+        data.write(0 as u8);
+        addr.write(cursor_loc_hi);   // cursor location hi
+        //data.write(((offset >> 8) & 0xFF) as u8);
+        data.write(0 as u8);
+    }
+
 }
 
 impl fmt::Write for Writer {

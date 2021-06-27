@@ -12,12 +12,16 @@ use blog_os::println;
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    println!("Hello, World!");
-    println!("exceptions");
+    println!("Double Faults");
 
     blog_os::init();
 
-    x86_64::instructions::interrupts::int3();
+    /*
+    unsafe {
+        let p = 0xdeadbeef as *mut i32;
+        *p = 42;
+    };
+    */
 
     #[cfg(test)]
     test_main();
