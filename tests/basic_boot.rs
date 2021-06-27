@@ -4,14 +4,16 @@
 #![test_runner(blog_os::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-use blog_os::println;
+use blog_os::{println, hlt_loop};
 use core::panic::PanicInfo;
+use bootloader::{entry_point, BootInfo};
 
-#[no_mangle] // don't mangle the name of this function
-pub extern "C" fn _start() -> ! {
+entry_point!(kernel_main);
+
+fn kernel_main(_boot_info: &'static BootInfo) -> ! {
     test_main();
 
-    loop {}
+    hlt_loop();
 }
 
 #[panic_handler]
