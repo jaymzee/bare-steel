@@ -14,24 +14,11 @@ lazy_static! {
     ///
     /// Used by the `print!` and `println!` macros.
     pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
-        column_position: 0,
+        column: 0,
+        row: BUFFER_HEIGHT - 1,
         text_attr: TextAttribute::new(Color::LightCyan, Color::Black),
         buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
     });
-}
-
-fn locate_cursor(r: u32, c: u32) {
-    use x86_64::instructions::port::Port;
-    let mut addr = Port::new(0x3D4);
-    let mut data = Port::new(0x3D5);
-    let offset = BUFFER_WIDTH as u32 * r + c;
-
-    unsafe {
-        addr.write(0x0F as u8);   // cursor location lo
-        data.write((offset & 0xFF) as u8);
-        addr.write(0x0E as u8);   // cursor location hi
-        data.write(((offset >> 8) & 0xFF) as u8);
-    }
 }
 
 pub fn set_text_attr(attr: TextAttribute) {
@@ -92,7 +79,8 @@ struct Buffer {
 /// Wraps lines at `BUFFER_WIDTH`. Supports newline characters and implements
 /// the `core::fmt::Write trait.
 pub struct Writer {
-    column_position: usize,
+    row: usize,
+    column: usize,
     text_attr: TextAttribute,
     buffer: &'static mut Buffer,
 }
@@ -105,20 +93,20 @@ impl Writer {
         match byte {
             b'\n' => self.new_line(),
             byte => {
-                if self.column_position >= BUFFER_WIDTH {
+                if self.column >= BUFFER_WIDTH {
                     self.new_line();
                 }
 
-                let row = BUFFER_HEIGHT - 1;
-                let col = self.column_position;
+                let row = self.row;
+                let col = self.column;
 
                 let text_attr = self.text_attr;
                 self.buffer.chars[row][col].write(ScreenChar {
                     ascii_code: byte,
                     text_attr,
                 });
-                self.column_position += 1;
-                locate_cursor(row as u32, self.column_position as u32);
+                self.column += 1;
+                self.move_cursor();
             }
         }
     }
@@ -142,16 +130,19 @@ impl Writer {
 
     /// Shifts all lines one line up and clears the last row.
     fn new_line(&mut self) {
-        for row in 1..BUFFER_HEIGHT {
-            for col in 0..BUFFER_WIDTH {
-                let character = self.buffer.chars[row][col].read();
-                self.buffer.chars[row - 1][col].write(character);
+        if (self.row < BUFFER_HEIGHT - 1) {
+            self.row += 1;
+        } else {
+            for row in 1..BUFFER_HEIGHT {
+                for col in 0..BUFFER_WIDTH {
+                    let ch = self.buffer.chars[row][col].read();
+                    self.buffer.chars[row - 1][col].write(ch);
+                }
             }
+            self.clear_row(self.row);
         }
-        let row = BUFFER_HEIGHT - 1;
-        self.clear_row(row);
-        self.column_position = 0;
-        locate_cursor(row as u32, 0);
+        self.column = 0;
+        self.move_cursor();
     }
 
     /// Clears a row by overwriting it with blank characters.
@@ -162,6 +153,21 @@ impl Writer {
         };
         for col in 0..BUFFER_WIDTH {
             self.buffer.chars[row][col].write(blank);
+        }
+    }
+
+    fn move_cursor(&mut self) {
+        use x86_64::instructions::port::Port;
+        let mut addr = Port::new(0x3D4);
+        let mut data = Port::new(0x3D5);
+        let offset = BUFFER_WIDTH as u32 * self.row as u32 +
+                     self.column as u32;
+
+        unsafe {
+            addr.write(0x0F as u8);   // cursor location lo
+            data.write((offset & 0xFF) as u8);
+            addr.write(0x0E as u8);   // cursor location hi
+            data.write(((offset >> 8) & 0xFF) as u8);
         }
     }
 }
@@ -193,7 +199,11 @@ macro_rules! println {
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
-    WRITER.lock().write_fmt(args).unwrap();
+    use x86_64::instructions::interrupts;
+
+    interrupts::without_interrupts(|| {
+        WRITER.lock().write_fmt(args).unwrap();
+    });
 }
 
 #[test_case]
@@ -210,10 +220,16 @@ fn test_println_many() {
 
 #[test_case]
 fn test_println_output() {
+    use core::fmt::Write;
+    use x86_64::instructions::interrupts;
+
     let s = "Some test string that fits on a single line";
-    println!("{}", s);
-    for (i, c) in s.chars().enumerate() {
-        let ch = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i].read();
-        assert_eq!(char::from(ch.ascii_code), c);
-    }
+    interrupts::without_interrupts(|| {
+        let mut writer = WRITER.lock();
+        writeln!(writer, "\n{}", s).expect("writeln failed");
+        for (i, c) in s.chars().enumerate() {
+            let scrn_char = writer.buffer.chars[BUFFER_HEIGHT - 2][i].read();
+            assert_eq!(char::from(scrn_char.ascii_code), c);
+        }
+    });
 }

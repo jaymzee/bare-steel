@@ -13,27 +13,19 @@ use blog_os::println;
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     use blog_os::vga_buffer::{Color, TextAttribute, set_text_attr};
-    set_text_attr(TextAttribute::new(Color::LightCyan, Color::Black));
-    println!("Double Faults");
+    println!("Hardware Interrupts");
+    set_text_attr(TextAttribute::new(Color::LightGray, Color::Black));
 
     blog_os::init();
-
-    #[cfg(not(test))]
-    cause_page_fault();
 
     #[cfg(test)]
     test_main();
 
-    println!("It did not crash!");
+    for i in 1..20 {
+        println!("i = {}", i);
+    }
 
-    loop {}
-}
-
-fn cause_page_fault() {
-    unsafe {
-        let p = 0xdeadbeef as *mut i32;
-        *p = 42;
-    };
+    blog_os::hlt_loop();
 }
 
 // panic handler
@@ -41,7 +33,8 @@ fn cause_page_fault() {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
-    loop {}
+
+    blog_os::hlt_loop();
 }
 
 // panic handler in test mode
@@ -49,7 +42,8 @@ fn panic(info: &PanicInfo) -> ! {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     blog_os::test_panic_handler(info);
-    loop {}
+
+    blog_os::hlt_loop();
 }
 
 #[test_case]
