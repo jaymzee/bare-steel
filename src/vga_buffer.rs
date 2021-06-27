@@ -3,6 +3,11 @@ use lazy_static::lazy_static;
 use spin::Mutex;
 use volatile::Volatile;
 
+/// The height of the text buffer
+const BUFFER_HEIGHT: usize = 25;
+/// The width of the text buffer
+const BUFFER_WIDTH: usize = 80;
+
 lazy_static! {
     /// A global 'Writer' instance that can be used for printing to the VGA text buffer
     ///
@@ -12,6 +17,20 @@ lazy_static! {
         color_code: ColorCode::new(Color::LightCyan, Color::Black),
         buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
     });
+}
+
+fn locate_cursor(r: u32, c: u32) {
+    use x86_64::instructions::port::Port;
+    let mut addr = Port::new(0x3D4);
+    let mut data = Port::new(0x3D5);
+    let offset = BUFFER_WIDTH as u32 * r + c;
+
+    unsafe {
+        addr.write(0x0F as u8);   // cursor location lo
+        data.write((offset & 0xFF) as u8);
+        addr.write(0x0E as u8);   // cursor location hi
+        data.write(((offset >> 8) & 0xFF) as u8);
+    }
 }
 
 /// The standard color palette in VGA text mode.
@@ -56,11 +75,6 @@ struct ScreenChar {
     color_code: ColorCode,
 }
 
-/// The height of the text buffer
-const BUFFER_HEIGHT: usize = 25;
-/// The width of the text buffer
-const BUFFER_WIDTH: usize = 80;
-
 /// A structure representing the VGA text buffer
 #[repr(transparent)]
 struct Buffer {
@@ -98,7 +112,7 @@ impl Writer {
                     color_code,
                 });
                 self.column_position += 1;
-                //locate_cursor(row as u32, self.column_position as u32);
+                locate_cursor(row as u32, self.column_position as u32);
             }
         }
     }
@@ -127,8 +141,10 @@ impl Writer {
                 self.buffer.chars[row - 1][col].write(character);
             }
         }
-        self.clear_row(BUFFER_HEIGHT - 1);
+        let row = BUFFER_HEIGHT - 1;
+        self.clear_row(row);
         self.column_position = 0;
+        locate_cursor(row as u32, 0);
     }
 
     /// Clears a row by overwriting it with blank characters.
@@ -141,26 +157,6 @@ impl Writer {
             self.buffer.chars[row][col].write(blank);
         }
     }
-}
-
-fn locate_cursor(x: u32, y: u32) {
-    use x86_64::instructions::port::Port;
-
-    let offset = BUFFER_WIDTH as u32 * y + x;
-    let mut addr = Port::new(0x3D4);
-    let mut data = Port::new(0x3D5);
-    const cursor_loc_lo: u8 = 0x0E;
-    const cursor_loc_hi: u8 = 0x0F;
-
-    unsafe {
-        addr.write(cursor_loc_lo);   // cursor location lo
-        //data.write((offset & 0xFF) as u8);
-        data.write(0 as u8);
-        addr.write(cursor_loc_hi);   // cursor location hi
-        //data.write(((offset >> 8) & 0xFF) as u8);
-        data.write(0 as u8);
-    }
-
 }
 
 impl fmt::Write for Writer {

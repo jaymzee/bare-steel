@@ -16,12 +16,10 @@ pub extern "C" fn _start() -> ! {
 
     blog_os::init();
 
-    /*
     unsafe {
         let p = 0xdeadbeef as *mut i32;
         *p = 42;
     };
-    */
 
     #[cfg(test)]
     test_main();
