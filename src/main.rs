@@ -12,7 +12,9 @@ use blog_os::println;
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    println!("Double Faults");
+    use blog_os::vga_buffer::{Color, TextAttribute, set_text_attr};
+    set_text_attr(TextAttribute::new(Color::White, Color::Blue));
+    println!("********************* Double Faults *********************");
 
     blog_os::init();
 
