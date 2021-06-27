@@ -156,18 +156,17 @@ impl Writer {
         }
     }
 
-    fn move_cursor(&mut self) {
+    fn move_cursor(&self) {
         use x86_64::instructions::port::Port;
         let mut addr = Port::new(0x3D4);
         let mut data = Port::new(0x3D5);
-        let offset = BUFFER_WIDTH as u32 * self.row as u32 +
-                     self.column as u32;
+        let offset = BUFFER_WIDTH * self.row + self.column;
 
         unsafe {
             addr.write(0x0F as u8);   // cursor location lo
-            data.write((offset & 0xFF) as u8);
+            data.write(offset as u8);
             addr.write(0x0E as u8);   // cursor location hi
-            data.write(((offset >> 8) & 0xFF) as u8);
+            data.write((offset >> 8) as u8);
         }
     }
 }
