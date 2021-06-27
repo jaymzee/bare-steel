@@ -130,7 +130,7 @@ impl Writer {
 
     /// Shifts all lines one line up and clears the last row.
     fn new_line(&mut self) {
-        if (self.row < BUFFER_HEIGHT - 1) {
+        if self.row < BUFFER_HEIGHT - 1 {
             self.row += 1;
         } else {
             for row in 1..BUFFER_HEIGHT {
