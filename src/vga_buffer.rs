@@ -214,6 +214,6 @@ fn test_println_output() {
     println!("{}", s);
     for (i, c) in s.chars().enumerate() {
         let ch = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i].read();
-        assert_eq!(char::from(ch.ascii_character), c);
+        assert_eq!(char::from(ch.ascii_code), c);
     }
 }

@@ -13,15 +13,13 @@ use blog_os::println;
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     use blog_os::vga_buffer::{Color, TextAttribute, set_text_attr};
-    set_text_attr(TextAttribute::new(Color::White, Color::Blue));
-    println!("********************* Double Faults *********************");
+    set_text_attr(TextAttribute::new(Color::LightCyan, Color::Black));
+    println!("Double Faults");
 
     blog_os::init();
 
-    unsafe {
-        let p = 0xdeadbeef as *mut i32;
-        *p = 42;
-    };
+    #[cfg(not(test))]
+    cause_page_fault();
 
     #[cfg(test)]
     test_main();
@@ -31,15 +29,22 @@ pub extern "C" fn _start() -> ! {
     loop {}
 }
 
-// our existing panic handler
-#[cfg(not(test))] // new attribute
+fn cause_page_fault() {
+    unsafe {
+        let p = 0xdeadbeef as *mut i32;
+        *p = 42;
+    };
+}
+
+// panic handler
+#[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
     loop {}
 }
 
-// our panic handler in test mode
+// panic handler in test mode
 #[cfg(test)]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
