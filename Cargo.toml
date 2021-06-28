@@ -1,18 +1,43 @@
 [package]
-name = "boot"
+name = "blog_os"
 version = "0.1.0"
-authors = ["jaymzee <jaymzee@users.noreply.github.com>"]
+authors = [
+    "Philipp Oppermann <dev@phil-opp.com>",
+    "jaymzee <jaymzee@users.noreply.github.com>"
+]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[test]]
+name = "should_panic"
+harness = false
 
-# the profile used for `cargo build`
-[profile.dev]
-panic = "abort" # disable stack unwinding on panic
-
-# the profile used for `cargo build --release`
-[profile.release]
-panic = "abort" # disable stack unwinding on pain
+[[test]]
+name = "stack_overflow"
+harness = false
 
 [dependencies]
-bootloader = "0.9.8"
+volatile = "0.2.6"
+spin = "0.5.2"
+x86_64 = "0.14.2"
+uart_16550 = "0.2.0"
+pic8259 = "0.10.1"
+pc-keyboard = "0.5.0"
+linked_list_allocator = "0.9.0"
+
+[dependencies.bootloader]
+version = "0.9.18"
+features = ["map_physical_memory"]
+
+[dependencies.lazy_static]
+version = "1.0"
+features = ["spin_no_std"]
+
+[package.metadata.bootimage]
+run-args = ["-m", "16"]
+test-args = [
+    "-device", "isa-debug-exit,iobase=0xf4,iosize=0x04",
+    "-serial", "stdio",
+    "-display", "none"
+]
+test-success-exit-code = 33
+test-timeout = 10
