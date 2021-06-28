@@ -21,7 +21,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     use blog_os::vga_buffer::{Color, TextAttribute, set_text_attr};
     use x86_64::VirtAddr;
 
-    println!("Heap Allocation!");
+    println!("Allocator Designs");
     set_text_attr(TextAttribute::new(Color::LightGray, Color::Black));
 
     blog_os::init();
