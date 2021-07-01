@@ -4,7 +4,7 @@ use pic8259::ChainedPics;
 use x86_64::structures::idt::{
     InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode
 };
-use crate::{gdt, println, hlt_loop};
+use crate::{gdt, print, println, hlt_loop};
 
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
@@ -54,10 +54,11 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(
     _stack_frame: InterruptStackFrame)
 {
     use x86_64::instructions::port::Port;
+    use crate::task::keyboard;
 
     let mut port = Port::new(0x60);
     let scancode: u8 = unsafe { port.read() };
-    crate::task::keyboard::add_scancode(scancode);
+    keyboard::add_scancode(scancode);
 
     unsafe {
         PICS.lock()
@@ -68,7 +69,7 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(
 extern "x86-interrupt" fn timer_interrupt_handler(
     _stack_frame: InterruptStackFrame)
 {
-    //print!(".");
+    print!(".");
 
     unsafe {
         PICS.lock()

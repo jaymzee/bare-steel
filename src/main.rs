@@ -10,7 +10,6 @@
 extern crate alloc;
 use core::panic::PanicInfo;
 use bootloader::{BootInfo, entry_point};
-use blog_os::task::keyboard;
 use blog_os::println;
 
 entry_point!(kernel_main);
@@ -19,7 +18,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     use blog_os::allocator;
     use blog_os::memory::{self, BootInfoFrameAllocator};
     use blog_os::vga_buffer::{Color, TextAttribute, set_text_attr};
-    use blog_os::task::{Task, simple_executor::SimpleExecutor};
+    use blog_os::task::{Task, executor::Executor, keyboard};
     use x86_64::VirtAddr;
 
     println!("Async/Await");
@@ -36,17 +35,14 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     allocator::init_heap(&mut mapper, &mut frame_allocator)
         .expect("heap initialization failed");
 
-    let mut executor = SimpleExecutor::new();
-    executor.spawn(Task::new(example_task()));
-    executor.spawn(Task::new(keyboard::print_keypresses()));
-    executor.run();
-
     // as before
     #[cfg(test)]
     test_main();
 
-    println!("It did not crash!");
-    blog_os::hlt_loop();
+    let mut executor = Executor::new();
+    executor.spawn(Task::new(example_task()));
+    executor.spawn(Task::new(keyboard::print_keypresses()));
+    executor.run();
 }
 
 async fn async_number() -> u32 {
