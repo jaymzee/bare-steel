@@ -1,31 +1,18 @@
-use conquer_once::spin::OnceCell;
-use crossbeam_queue::ArrayQueue;
 use crate::{print, println};
-use core::{pin::Pin, task::{Poll, Context}};
-use futures_util::stream::Stream;
-use futures_util::task::AtomicWaker;
-use futures_util::stream::StreamExt;
+use conquer_once::spin::OnceCell;
+use core::{
+    pin::Pin,
+    task::{Context, Poll},
+};
+use crossbeam_queue::ArrayQueue;
+use futures_util::{
+    stream::{Stream, StreamExt},
+    task::AtomicWaker,
+};
 use pc_keyboard::{layouts, DecodedKey, HandleControl, Keyboard, ScancodeSet1};
 
 static SCANCODE_QUEUE: OnceCell<ArrayQueue<u8>> = OnceCell::uninit();
 static WAKER: AtomicWaker = AtomicWaker::new();
-
-pub async fn print_keypresses() {
-    let mut scancodes = ScancodeStream::new();
-    let mut keyboard = Keyboard::new(layouts::Us104Key, ScancodeSet1,
-        HandleControl::Ignore);
-
-    while let Some(scancode) = scancodes.next().await {
-        if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
-            if let Some(key) = keyboard.process_keyevent(key_event) {
-                match key {
-                    DecodedKey::Unicode(character) => print!("{}", character),
-                    DecodedKey::RawKey(key) => print!("{:?}", key),
-                }
-            }
-        }
-    }
-}
 
 /// Called by the keyboard interrupt handler
 ///
@@ -74,6 +61,23 @@ impl Stream for ScancodeStream {
                 Poll::Ready(Some(scancode))
             }
             Err(crossbeam_queue::PopError) => Poll::Pending,
+        }
+    }
+}
+
+pub async fn print_keypresses() {
+    let mut scancodes = ScancodeStream::new();
+    let mut keyboard = Keyboard::new(layouts::Us104Key, ScancodeSet1,
+                                     HandleControl::Ignore);
+
+    while let Some(scancode) = scancodes.next().await {
+        if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
+            if let Some(key) = keyboard.process_keyevent(key_event) {
+                match key {
+                    DecodedKey::Unicode(character) => print!("{}", character),
+                    DecodedKey::RawKey(key) => print!("{:?}", key),
+                }
+            }
         }
     }
 }

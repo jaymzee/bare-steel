@@ -11,7 +11,7 @@ pub struct Executor {
 
 impl Executor {
     pub fn new() -> Self {
-        Executor {
+        Self {
             tasks: BTreeMap::new(),
             task_queue: Arc::new(ArrayQueue::new(100)),
             waker_cache: BTreeMap::new(),
@@ -30,17 +30,6 @@ impl Executor {
         loop {
             self.run_ready_tasks();
             self.sleep_if_idle();
-        }
-    }
-
-    fn sleep_if_idle(&self) {
-        use x86_64::instructions::interrupts::{self, enable_and_hlt};
-
-        interrupts::disable();
-        if self.task_queue.is_empty() {
-            enable_and_hlt();
-        } else {
-            interrupts::enable();
         }
     }
 
@@ -69,6 +58,17 @@ impl Executor {
                 }
                 Poll::Pending => {}
             }
+        }
+    }
+
+    fn sleep_if_idle(&self) {
+        use x86_64::instructions::interrupts::{self, enable_and_hlt};
+
+        interrupts::disable();
+        if self.task_queue.is_empty() {
+            enable_and_hlt();
+        } else {
+            interrupts::enable();
         }
     }
 }
