@@ -11,7 +11,7 @@ use bootloader::{entry_point, BootInfo};
 
 entry_point!(kernel_main);
 
-fn kernel_main(boot_info: &'static BootInfo) -> ! {
+fn kernel_main(_boot_info: &'static BootInfo) -> ! {
     should_fail();
     serial_println!("[test did not panic]");
     exit_qemu(QemuExitCode::Failed);

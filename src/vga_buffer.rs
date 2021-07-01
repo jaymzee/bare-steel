@@ -16,13 +16,13 @@ lazy_static! {
     pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
         column: 0,
         row: BUFFER_HEIGHT - 1,
-        text_attr: TextAttribute::new(Color::LightCyan, Color::Black),
+        attr: ScreenAttribute::new(Color::LightCyan, Color::Black),
         buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
     });
 }
 
-pub fn set_text_attr(attr: TextAttribute) {
-    WRITER.lock().text_attr = attr;
+pub fn set_screen_attr(attr: ScreenAttribute) {
+    WRITER.lock().attr = attr;
 }
 
 /// The standard color palette in VGA text mode.
@@ -51,11 +51,11 @@ pub enum Color {
 /// VGA text mode attribute value
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
-pub struct TextAttribute(u8);
+pub struct ScreenAttribute(u8);
 
-impl TextAttribute {
-    pub fn new(foreground: Color, background: Color) -> TextAttribute {
-        TextAttribute((background as u8) << 4 | (foreground as u8))
+impl ScreenAttribute {
+    pub fn new(foreground: Color, background: Color) -> Self {
+        Self((background as u8) << 4 | (foreground as u8))
     }
 }
 
@@ -63,8 +63,8 @@ impl TextAttribute {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 struct ScreenChar {
-    ascii_code: u8,
-    text_attr: TextAttribute,
+    code: u8,       // ascii code
+    attr: ScreenAttribute,
 }
 
 /// A structure representing the VGA text buffer
@@ -81,7 +81,7 @@ struct Buffer {
 pub struct Writer {
     row: usize,
     column: usize,
-    text_attr: TextAttribute,
+    attr: ScreenAttribute,
     buffer: &'static mut Buffer,
 }
 
@@ -100,10 +100,9 @@ impl Writer {
                 let row = self.row;
                 let col = self.column;
 
-                let text_attr = self.text_attr;
                 self.buffer.chars[row][col].write(ScreenChar {
-                    ascii_code: byte,
-                    text_attr,
+                    code: byte,
+                    attr: self.attr,
                 });
                 self.column += 1;
                 self.move_cursor();
@@ -147,10 +146,7 @@ impl Writer {
 
     /// Clears a row by overwriting it with blank characters.
     fn clear_row(&mut self, row: usize) {
-        let blank = ScreenChar {
-            ascii_code: b' ',
-            text_attr: self.text_attr,
-        };
+        let blank = ScreenChar { code: b' ', attr: self.attr };
         for col in 0..BUFFER_WIDTH {
             self.buffer.chars[row][col].write(blank);
         }
@@ -175,6 +171,29 @@ impl fmt::Write for Writer {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.write_string(s);
         Ok(())
+    }
+}
+
+pub fn locate_text(s: &str, pos: (u8, u8), attr: ScreenAttribute) {
+    let buffer = unsafe { &mut *(0xb8000 as *mut Buffer) };
+    let mut row = (pos.1 - 1) as usize;
+    let mut col = (pos.0 - 1) as usize;
+
+    for byte in s.bytes() {
+        let code = match byte {
+            // printable ASCII byte or newline
+            0x20..=0x7e | b'\n' => byte,
+            // not part of printable ASCII range
+            _ => 0xfe,
+        };
+        if code == b'\n' {
+            row += 1;
+            col = 0;
+        } else {
+            let scrn_char = ScreenChar { code, attr };
+            buffer.chars[row][col].write(scrn_char);
+            col += 1;
+        }
     }
 }
 
@@ -228,7 +247,7 @@ fn test_println_output() {
         writeln!(writer, "\n{}", s).expect("writeln failed");
         for (i, c) in s.chars().enumerate() {
             let scrn_char = writer.buffer.chars[BUFFER_HEIGHT - 2][i].read();
-            assert_eq!(char::from(scrn_char.ascii_code), c);
+            assert_eq!(char::from(scrn_char.code), c);
         }
     });
 }

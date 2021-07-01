@@ -18,12 +18,12 @@ entry_point!(kernel_main);
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
     use blog_os::allocator;
     use blog_os::memory::{self, BootInfoFrameAllocator};
-    use blog_os::vga_buffer::{Color, TextAttribute, set_text_attr};
+    use blog_os::vga_buffer::{Color, ScreenAttribute, set_screen_attr};
     use blog_os::task::{Task, executor::Executor, keyboard};
     use x86_64::VirtAddr;
 
     println!("Async/Await");
-    set_text_attr(TextAttribute::new(Color::LightGray, Color::Black));
+    set_screen_attr(ScreenAttribute::new(Color::LightGray, Color::Black));
 
     // load GDT, IDT and enable interrupts
     blog_os::init();
