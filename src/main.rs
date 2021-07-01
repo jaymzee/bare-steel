@@ -18,7 +18,7 @@ entry_point!(kernel_main);
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
     use blog_os::allocator;
     use blog_os::memory::{self, BootInfoFrameAllocator};
-    use blog_os::vga_buffer::{Color, ScreenAttribute, set_screen_attr};
+    use blog_os::vga::{Color, ScreenAttribute, set_screen_attr};
     use blog_os::task::{Task, executor::Executor, keyboard, timer};
     use x86_64::VirtAddr;
 

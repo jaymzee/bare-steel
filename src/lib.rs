@@ -8,9 +8,9 @@
 #![feature(const_mut_refs)]
 
 extern crate alloc;
-pub mod gdt;
+pub mod vga;
 pub mod serial;
-pub mod vga_buffer;
+pub mod gdt;
 pub mod interrupts;
 pub mod memory;
 pub mod allocator;

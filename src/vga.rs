@@ -17,7 +17,7 @@ lazy_static! {
         column: 0,
         row: BUFFER_HEIGHT - 1,
         attr: ScreenAttribute::new(Color::LightCyan, Color::Black),
-        buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
+        buffer: unsafe { &mut *(0xb8000 as *mut ScreenBuffer) },
     });
 }
 
@@ -69,7 +69,7 @@ struct ScreenChar {
 
 /// A structure representing the VGA text buffer
 #[repr(transparent)]
-struct Buffer {
+struct ScreenBuffer {
     chars: [[Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
 }
 
@@ -82,7 +82,7 @@ pub struct Writer {
     row: usize,
     column: usize,
     attr: ScreenAttribute,
-    buffer: &'static mut Buffer,
+    buffer: &'static mut ScreenBuffer,
 }
 
 impl Writer {
@@ -175,7 +175,7 @@ impl fmt::Write for Writer {
 }
 
 pub fn display(s: &str, pos: (u8, u8), attr: ScreenAttribute) {
-    let buffer = unsafe { &mut *(0xb8000 as *mut Buffer) };
+    let buffer = unsafe { &mut *(0xb8000 as *mut ScreenBuffer) };
     let mut row = (pos.1 - 1) as usize;
     let mut col = (pos.0 - 1) as usize;
 
@@ -201,7 +201,7 @@ pub fn display(s: &str, pos: (u8, u8), attr: ScreenAttribute) {
 /// VGA text buffer.
 #[macro_export]
 macro_rules! print {
-    ($($arg:tt)*) => ($crate::vga_buffer::_print(format_args!($($arg)*)));
+    ($($arg:tt)*) => ($crate::vga::_print(format_args!($($arg)*)));
 }
 
 /// Like the `print!` macro in the standard library, but prints to the

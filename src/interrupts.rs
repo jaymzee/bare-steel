@@ -71,7 +71,7 @@ extern "x86-interrupt" fn timer_interrupt_handler(
 {
     use crate::task::timer::set_timer;
     use core::sync::atomic::{AtomicU64, Ordering};
-    use crate::vga_buffer::{Color, ScreenAttribute, display};
+    use crate::vga::{Color, ScreenAttribute, display};
 
     static TIMER: AtomicU64 = AtomicU64::new(0);
     let timer = TIMER.fetch_add(1, Ordering::Relaxed);

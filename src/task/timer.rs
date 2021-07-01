@@ -65,7 +65,7 @@ impl Stream for TimerStream {
 }
 
 pub async fn display_timer() {
-    use crate::vga_buffer::{display, Color, ScreenAttribute};
+    use crate::vga::{display, Color, ScreenAttribute};
 
     let cyan = ScreenAttribute::new(Color::LightCyan, Color::Black);
     let mut stream = TimerStream::new();
