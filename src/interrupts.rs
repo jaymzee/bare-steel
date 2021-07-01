@@ -69,11 +69,13 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(
 extern "x86-interrupt" fn timer_interrupt_handler(
     _stack_frame: InterruptStackFrame)
 {
+    use crate::task::timer::set_timer;
     use core::sync::atomic::{AtomicU64, Ordering};
-    use crate::vga_buffer::{Color, ScreenAttribute, locate_text};
+    use crate::vga_buffer::{Color, ScreenAttribute, display};
 
     static TIMER: AtomicU64 = AtomicU64::new(0);
     let timer = TIMER.fetch_add(1, Ordering::Relaxed);
+    set_timer(timer);
     let spinner = match timer % 4 {
         0 => "/",
         1 => "-",
@@ -81,7 +83,7 @@ extern "x86-interrupt" fn timer_interrupt_handler(
         _ => "|",
     };
     let attr = ScreenAttribute::new(Color::White, Color::Black);
-    locate_text(spinner, (1, 1), attr);
+    display(spinner, (1, 1), attr);
 
     unsafe {
         PICS.lock()

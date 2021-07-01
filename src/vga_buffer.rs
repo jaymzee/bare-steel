@@ -174,7 +174,7 @@ impl fmt::Write for Writer {
     }
 }
 
-pub fn locate_text(s: &str, pos: (u8, u8), attr: ScreenAttribute) {
+pub fn display(s: &str, pos: (u8, u8), attr: ScreenAttribute) {
     let buffer = unsafe { &mut *(0xb8000 as *mut Buffer) };
     let mut row = (pos.1 - 1) as usize;
     let mut col = (pos.0 - 1) as usize;
