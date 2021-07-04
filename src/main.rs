@@ -7,8 +7,6 @@
 #![test_runner(blog_os::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-extern crate alloc;
-
 use core::panic::PanicInfo;
 use bootloader::{BootInfo, entry_point};
 use blog_os::println;

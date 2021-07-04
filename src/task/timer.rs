@@ -1,4 +1,4 @@
-use crate::{println, alloc::string::ToString};
+use crate::println;
 use conquer_once::spin::OnceCell;
 use core::{
     pin::Pin,
@@ -70,8 +70,10 @@ pub async fn display_timer() {
     let cyan = ScreenAttribute::new(Color::LightCyan, Color::Black);
     let mut stream = TimerStream::new();
     loop {
-        if let Some(timer) = stream.next().await {
-            display(&timer.to_string(), (3, 1), cyan);
-        }
+        let s = match stream.next().await {
+            Some(timer) => format!("{:>4}", timer),
+            _ => format!("error")
+        };
+        display(&s, (1, 3), cyan);
     }
 }

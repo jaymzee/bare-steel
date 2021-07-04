@@ -7,7 +7,9 @@
 #![feature(alloc_error_handler)]
 #![feature(const_mut_refs)]
 
+#[macro_use]    // for format! macro
 extern crate alloc;
+
 pub mod vga;
 pub mod serial;
 pub mod gdt;
@@ -15,6 +17,7 @@ pub mod interrupts;
 pub mod memory;
 pub mod allocator;
 pub mod task;
+
 use core::panic::PanicInfo;
 
 #[cfg(test)]

@@ -176,8 +176,8 @@ impl fmt::Write for Writer {
 
 pub fn display(s: &str, pos: (u8, u8), attr: ScreenAttribute) {
     let buffer = unsafe { &mut *(0xb8000 as *mut ScreenBuffer) };
-    let mut row = (pos.1 - 1) as usize;
-    let mut col = (pos.0 - 1) as usize;
+    let mut row = (pos.0 - 1) as usize;
+    let mut col = (pos.1 - 1) as usize;
 
     for byte in s.bytes() {
         let code = match byte {
