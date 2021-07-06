@@ -43,8 +43,6 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     executor.spawn(Task::new(timer::system_timer(0)));
     executor.spawn(Task::new(timer::system_timer(1)));
     executor.spawn(Task::new(timer::system_timer(2)));
-    executor.spawn(Task::new(timer::system_timer(3)));
-    executor.spawn(Task::new(timer::system_timer(4)));
 
     executor.run();
 }
