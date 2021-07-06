@@ -1,79 +1,52 @@
-use crate::println;
-use conquer_once::spin::OnceCell;
 use core::{
+    sync::atomic::{AtomicBool, Ordering},
     pin::Pin,
     task::{Context, Poll},
+    future::Future,
 };
-use crossbeam_queue::ArrayQueue;
-use futures_util::{
-    stream::{Stream, StreamExt},
-    task::AtomicWaker,
-};
+use futures_util::task::AtomicWaker;
 
-static TIMER_QUEUE: OnceCell<ArrayQueue<u64>> = OnceCell::uninit();
+static NOTIFY: AtomicBool = AtomicBool::new(false);
 static WAKER: AtomicWaker = AtomicWaker::new();
 
 /// Called by the timer interrupt handler
 ///
 /// Must not block or allocate.
-pub(crate) fn set_timer(time: u64) {
-    if let Ok(queue) = TIMER_QUEUE.try_get() {
-        if let Err(_) = queue.push(time) {
-            println!("WARNING: timer queue full; dropping timer value");
-        } else {
-            WAKER.wake();
-        }
-    } else {
-        println!("WARNING: timer queue uninitialized");
-    }
+pub(crate) fn notify_timer_tick() {
+    NOTIFY.swap(true, Ordering::Release);
+    WAKER.wake();
 }
 
-pub struct TimerStream {
-    _private: (),
-}
+pub struct TickFuture;
 
-impl TimerStream {
+impl TickFuture {
     pub fn new() -> Self {
-        TIMER_QUEUE.try_init_once(|| ArrayQueue::new(100))
-            .expect("TimerStream::new should only be called once");
-        Self { _private: () }
+        Self { }
     }
 }
 
-impl Stream for TimerStream {
-    type Item = u64;
+impl Future for TickFuture {
+    type Output = ();
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<u64>> {
-        let queue = TIMER_QUEUE
-            .try_get()
-            .expect("timer queue not initialized");
-
-        // fast path
-        if let Ok(time) = queue.pop() {
-            return Poll::Ready(Some(time));
-        }
-
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<()> {
         WAKER.register(&cx.waker());
-        match queue.pop() {
-            Ok(scancode) => {
-                WAKER.take();
-                Poll::Ready(Some(scancode))
-            }
-            Err(crossbeam_queue::PopError) => Poll::Pending,
+        if NOTIFY.swap(false, Ordering::Release) {
+            Poll::Ready(())
+        } else {
+            Poll::Pending
         }
     }
 }
 
-pub async fn display_timer() {
-    use crate::vga::{display, Color, ScreenAttribute};
-
+pub async fn system_timer() {
+    use crate::vga::{self, Color, ScreenAttribute};
     let cyan = ScreenAttribute::new(Color::LightCyan, Color::Black);
-    let mut stream = TimerStream::new();
+    let mut timer: u64 = 0;
+
     loop {
-        let s = match stream.next().await {
-            Some(timer) => format!("{:>4}", timer),
-            _ => format!("error")
-        };
-        display(&s, (1, 3), cyan);
+        TickFuture::new().await;
+        timer += 1;
+        let time_str = format!("{:>4}", timer);
+        vga::display(&time_str, (1, 3), cyan);
     }
 }

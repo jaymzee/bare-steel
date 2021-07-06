@@ -40,7 +40,8 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     let mut executor = Executor::new();
     executor.spawn(Task::new(keyboard::print_keypresses()));
-    executor.spawn(Task::new(timer::display_timer()));
+    executor.spawn(Task::new(timer::system_timer()));
+
     executor.run();
 }
 

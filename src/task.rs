@@ -9,7 +9,6 @@ use core::{
 pub mod executor;
 pub mod keyboard;
 pub mod timer;
-pub mod timer_;
 
 pub struct Task {
     id: TaskId,
