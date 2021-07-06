@@ -75,7 +75,7 @@ extern "x86-interrupt" fn timer_interrupt_handler(
 
     static TIMER: AtomicU64 = AtomicU64::new(0);
     let timer = TIMER.fetch_add(1, Ordering::Relaxed);
-    timer::notify_timer_tick();
+    timer::set_timer(timer);
     let spinner = match timer % 4 {
         0 => "/",
         1 => "-",
