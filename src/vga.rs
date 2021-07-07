@@ -25,6 +25,10 @@ pub fn set_default_attribute(attr: ScreenAttribute) {
     WRITER.lock().attr = attr;
 }
 
+pub fn get_default_attribute() -> ScreenAttribute {
+    WRITER.lock().attr
+}
+
 /// The standard color palette in VGA text mode.
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
