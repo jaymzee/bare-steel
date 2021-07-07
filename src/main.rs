@@ -10,7 +10,8 @@
 #[macro_use]    // for format! macro
 extern crate alloc;
 
-use blog_os::{println,vga::{self, Color, ScreenAttribute}};
+use blog_os::{println, task::timer};
+use blog_os::vga::{self, Color, ScreenAttribute};
 use bootloader::{BootInfo, entry_point};
 use core::panic::PanicInfo;
 
@@ -44,24 +45,21 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     let mut executor = Executor::new();
     executor.spawn(Task::new(keyboard::print_keypresses()));
-    for id in 0..8 {
-        executor.spawn(Task::new(timer_task(id)));
+    for id in 0..=6 {
+        executor.spawn(Task::new(timer::display_timer(id)));
     }
+    executor.spawn(Task::new(display_seconds(7)));
 
     executor.run();
 }
 
-pub async fn timer_task(id: usize) {
-    use blog_os::task::timer::Timer;
-
-    let cyan = ScreenAttribute::new(Color::LightCyan, Color::Black);
+async fn display_seconds(id: usize) {
+    let color = ScreenAttribute::new(Color::Yellow, Color::Black);
     let scrn_pos = (1, 3 + 8 * id as u8);
 
-    loop {
-        let timer = Timer::Tick(id).await;
-        vga::display(&format!("{:>6}", timer), scrn_pos, cyan);
-        let timer = Timer::Tock(id).await;
-        vga::display(&format!("{:>6}", timer), scrn_pos, cyan);
+    for seconds in 0..u32::MAX {
+        vga::display(&format!("{:>6}", seconds), scrn_pos, color);
+        timer::sleep(id, 18).await;
     }
 }
 
