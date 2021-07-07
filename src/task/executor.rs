@@ -61,12 +61,29 @@ impl Executor {
         }
     }
 
+    fn display_thread_is_running(running: bool) {
+        use crate::vga::{display, Color, ScreenAttribute};
+        let green = ScreenAttribute::new(Color::LightGreen, Color::Black);
+        let cyan = ScreenAttribute::new(Color::LightCyan, Color::Black);
+        let gray = ScreenAttribute::new(Color::DarkGray, Color::Black);
+
+        if running {
+            display("RUN", (1, 70), green);
+            display("/ SLEEP", (1, 74), gray);
+        } else {
+            display("RUN /", (1, 70), gray);
+            display("SLEEP", (1, 76), cyan);
+        }
+    }
+
     fn sleep_if_idle(&self) {
         use x86_64::instructions::interrupts::{self, enable_and_hlt};
 
         interrupts::disable();
         if self.task_queue.is_empty() {
+            Self::display_thread_is_running(false);
             enable_and_hlt();
+            Self::display_thread_is_running(true);
         } else {
             interrupts::enable();
         }

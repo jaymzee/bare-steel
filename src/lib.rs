@@ -7,21 +7,20 @@
 #![feature(alloc_error_handler)]
 #![feature(const_mut_refs)]
 
-#[macro_use]    // for format! macro
+//#[macro_use]    // for format! macro
 extern crate alloc;
 
-pub mod vga;
-pub mod serial;
+pub mod allocator;
 pub mod gdt;
 pub mod interrupts;
 pub mod memory;
-pub mod allocator;
+pub mod serial;
 pub mod task;
-
-use core::panic::PanicInfo;
+pub mod vga;
 
 #[cfg(test)]
 use bootloader::{BootInfo, entry_point};
+use core::panic::PanicInfo;
 
 #[cfg(test)]
 entry_point!(test_kernel_main);

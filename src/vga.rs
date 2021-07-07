@@ -21,7 +21,7 @@ lazy_static! {
     });
 }
 
-pub fn set_screen_attr(attr: ScreenAttribute) {
+pub fn set_default_attribute(attr: ScreenAttribute) {
     WRITER.lock().attr = attr;
 }
 
