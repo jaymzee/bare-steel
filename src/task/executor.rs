@@ -68,11 +68,11 @@ impl Executor {
         let gray = ScreenAttribute::new(Color::DarkGray, Color::Black);
 
         if running {
-            display("RUN", (1, 70), green);
-            display("/ SLEEP", (1, 74), gray);
+            display("[    / SLEEP]", (1, 68), gray);
+            display("RUN", (1, 69), green);
         } else {
-            display("RUN /", (1, 70), gray);
-            display("SLEEP", (1, 76), cyan);
+            display("[RUN /      ]", (1, 68), gray);
+            display("SLEEP", (1, 75), cyan);
         }
     }
 

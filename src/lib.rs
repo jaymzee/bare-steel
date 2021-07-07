@@ -55,9 +55,9 @@ where
     T: Fn(),
 {
     fn run(&self) {
-        serial_print!("{}...\t", core::any::type_name::<T>());
+        print_test_name(core::any::type_name::<T>());
         self();
-        serial_println!("[ok]");
+        print_test_passed();
     }
 }
 
@@ -70,10 +70,25 @@ pub fn test_runner(tests: &[&dyn Testable]) {
 }
 
 pub fn test_panic_handler(info: &PanicInfo) -> ! {
-    serial_println!("[failed]\n");
-    serial_println!("Error: {}\n", info);
+    print_test_failed();
+    serial_println!("\x1b[31;1mError\x1b[0m: {}\n", info);
     exit_qemu(QemuExitCode::Failed);
-    hlt_loop();
+}
+
+pub fn print_test_name(name: &str) {
+    serial_print!("{} ... ", name);
+}
+pub fn print_test_passed() {
+    serial_println!("\x1b[32;1m{}\x1b[0m", "ok");
+}
+
+pub fn print_test_failed() {
+    serial_println!("\x1b[31;1m{}\x1b[0m\n", "FAILED");
+}
+
+pub fn print_test_failed_because(msg: &str) {
+    serial_println!("\x1b[31;1m{}\x1b[0m\n", "FAILED");
+    serial_println!("\x1b[31;1mError\x1b[0m: {}\n", msg);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -83,13 +98,15 @@ pub enum QemuExitCode {
     Failed = 0x11,
 }
 
-pub fn exit_qemu(exit_code: QemuExitCode) {
+pub fn exit_qemu(exit_code: QemuExitCode) -> ! {
     use x86_64::instructions::port::Port;
 
     unsafe {
         let mut port = Port::new(0xf4);
         port.write(exit_code as u32);
     }
+
+    hlt_loop(); // spin here while waiting for qemu to exit
 }
 
 #[alloc_error_handler]

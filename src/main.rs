@@ -43,6 +43,8 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     #[cfg(test)]
     test_main();
 
+    println!("hey \x1b there");
+
     let mut executor = Executor::new();
     executor.spawn(Task::new(keyboard::print_keypresses()));
     for id in 0..=6 {
@@ -83,3 +85,4 @@ fn panic(info: &PanicInfo) -> ! {
 fn trivial_assertion() {
     assert_eq!(1, 1);
 }
+

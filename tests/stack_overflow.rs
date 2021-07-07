@@ -4,14 +4,14 @@
 
 use core::panic::PanicInfo;
 use lazy_static::lazy_static;
-use blog_os::{exit_qemu, QemuExitCode, serial_print, serial_println, hlt_loop};
+use blog_os::{exit_qemu, QemuExitCode, serial_print, print_test_passed};
 use x86_64::structures::idt::{InterruptStackFrame, InterruptDescriptorTable};
 use bootloader::{BootInfo, entry_point};
 
 entry_point!(kernel_main);
 
 fn kernel_main(_boot_info: &'static BootInfo) -> ! {
-    serial_print!("stack_overflow::stack_overflow...\t");
+    serial_print!("stack_overflow::stack_overflow ... ");
 
     blog_os::gdt::init();
     init_test_idt();
@@ -49,9 +49,8 @@ extern "x86-interrupt" fn test_double_fault_handler(
     _stack_frame: InterruptStackFrame,
     _error_code: u64,
 ) -> ! {
-    serial_println!("[ok]");
+    print_test_passed();
     exit_qemu(QemuExitCode::Success);
-    hlt_loop();
 }
 
 #[panic_handler]

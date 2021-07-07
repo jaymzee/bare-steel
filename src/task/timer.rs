@@ -32,10 +32,10 @@ pub enum Timer {
 }
 
 impl Timer {
-    fn get_id(&self) -> (usize, u8) {
-        match self {
-            Timer::Tick(id) => (*id, 1),
-            Timer::Tock(id) => (*id, 0),
+    fn id(&self) -> (usize, u8) {
+        match *self {
+            Timer::Tick(id) => (id, 1),
+            Timer::Tock(id) => (id, 0),
         }
     }
 }
@@ -44,7 +44,7 @@ impl Future for Timer {
     type Output = u64;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<u64> {
-        let (id, tick) = self.get_id(); // (timer id, tick/tock = 1/0)
+        let (id, tick) = self.id(); // (timer id, tick/tock = 1/0)
 
         // clock is the lsb of TIMER
         WAKER[id].register(cx.waker()); // call before checking result
