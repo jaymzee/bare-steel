@@ -6,28 +6,29 @@ use core::{
 };
 use futures_util::task::AtomicWaker;
 
-const TIMERS: usize = 3;
-const FLAG_INIT: AtomicBool = AtomicBool::new(false);
-const WAKER_INIT: AtomicWaker = AtomicWaker::new();
-const WAKERS_INIT: [AtomicWaker; TIMERS] = [WAKER_INIT; TIMERS];
+const MAX_TIMERS: usize = 8;
+const READY_DEFAULT: AtomicBool = AtomicBool::new(false);
+const WAKER_DEFAULT: AtomicWaker = AtomicWaker::new();
 
 // semaphore for tick and tock
-static FLAG: [AtomicBool; 2] = [FLAG_INIT; 2];
-static WAKER: [[AtomicWaker; TIMERS]; 2] = [WAKERS_INIT; 2];
+static READY: [AtomicBool; 2] = [READY_DEFAULT; 2];
+static WAKER: [AtomicWaker; MAX_TIMERS] = [WAKER_DEFAULT; MAX_TIMERS];
 static TIMER: AtomicU64 = AtomicU64::new(0);
 
 /// Called by the timer interrupt handler
 ///
 /// Must not block or allocate.
 pub(crate) fn set_timer(timer: u64) {
-    let tick_tock = (timer % 2) as usize;
-
     TIMER.store(timer, atomic::Ordering::Relaxed);
-    FLAG[tick_tock ^ 1].store(false, atomic::Ordering::Relaxed);
-    FLAG[tick_tock].store(true, atomic::Ordering::Relaxed);
 
-    for id in 0..TIMERS {
-        WAKER[tick_tock][id].wake();
+    // tick = 1, tock = 0
+    let index = (timer % 2) as usize;
+    READY[index].store(true, atomic::Ordering::Relaxed);
+    READY[index ^ 1].store(false, atomic::Ordering::Relaxed);
+
+    // notify each task that is waiting for a timer tick
+    for id in 0..MAX_TIMERS {
+        WAKER[id].wake();
     }
 }
 
@@ -37,17 +38,17 @@ pub enum Timer {
 }
 
 impl Timer {
-    fn ids(&self) -> (usize, usize) {
+    fn get_id(&self) -> (usize, usize) {
         match self {
             Timer::Tick(id) => (1, *id),
             Timer::Tock(id) => (0, *id),
         }
     }
 
-    fn ready(&self, waker: &Waker) -> bool {
-        let (tick_tock, id) = self.ids();
-        WAKER[tick_tock][id].register(waker);
-        FLAG[tick_tock].load(atomic::Ordering::Relaxed)
+    fn is_ready(&self, waker: &Waker) -> bool {
+        let (t, id) = self.get_id();    // (tick/tock = 1/0, timer id)
+        WAKER[id].register(waker);      // call before checking result
+        READY[t].load(atomic::Ordering::Relaxed)
     }
 }
 
@@ -55,7 +56,7 @@ impl Future for Timer {
     type Output = u64;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<u64> {
-        if self.ready(cx.waker()) {
+        if self.is_ready(cx.waker()) {
             Poll::Ready(TIMER.load(atomic::Ordering::Relaxed))
         } else {
             Poll::Pending

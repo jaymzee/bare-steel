@@ -66,6 +66,7 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(
     }
 }
 
+// BIOS initializes PIT to interrupt IRQ 0 at 18.2 Hz
 extern "x86-interrupt" fn timer_interrupt_handler(
     _stack_frame: InterruptStackFrame)
 {
