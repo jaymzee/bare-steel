@@ -40,10 +40,11 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     allocator::init_heap(&mut mapper, &mut frame_allocator)
         .expect("heap initialization failed");
 
+    blog_os::pit::set_interval_timer(100);
+    println!("timer interval set to 10 ms (100 Hz)");
+
     #[cfg(test)]
     test_main();
-
-    println!("hey \x1b there");
 
     let mut executor = Executor::new();
     executor.spawn(Task::new(keyboard::print_keypresses()));
@@ -61,7 +62,7 @@ async fn display_seconds(id: usize) {
 
     for seconds in 0..u32::MAX {
         vga::display(&format!("{:>6}", seconds), scrn_pos, color);
-        timer::sleep(id, 18).await;
+        timer::sleep(id, 100).await;
     }
 }
 

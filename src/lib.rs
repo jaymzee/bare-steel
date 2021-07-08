@@ -14,6 +14,7 @@ pub mod allocator;
 pub mod gdt;
 pub mod interrupts;
 pub mod memory;
+pub mod pit;
 pub mod serial;
 pub mod task;
 pub mod vga;
@@ -30,7 +31,8 @@ entry_point!(test_kernel_main);
 fn test_kernel_main(_boot_info: &'static BootInfo) -> ! {
     init();
     test_main();
-    hlt_loop();
+    // unreachable code: since exit_qemu already called by test runner
+    hlt_loop(); // just in case test runner is broken
 }
 
 pub fn init() {

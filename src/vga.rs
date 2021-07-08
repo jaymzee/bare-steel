@@ -18,7 +18,6 @@ lazy_static! {
         row: BUFFER_HEIGHT - 1,
         attr: ScreenAttribute::new(Color::LightCyan, Color::Black),
         buffer: unsafe { &mut *(0xb8000 as *mut ScreenBuffer) },
-        ansi: Ansi::Char,
     });
 }
 
@@ -88,7 +87,6 @@ pub struct Writer {
     column: usize,
     attr: ScreenAttribute,
     buffer: &'static mut ScreenBuffer,
-    ansi: Ansi,
 }
 
 impl Writer {
@@ -177,27 +175,6 @@ impl fmt::Write for Writer {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.write_string(s);
         Ok(())
-    }
-}
-
-enum Ansi {
-    Char,
-    Esc_,
-    Esc(u8),
-    Csi_,
-    Csi(u8),
-    Sgr_,
-    Sgr(u8),
-}
-
-impl Ansi {
-    fn next_state(&self, b: u8) -> Ansi {
-        match *self {
-            Ansi::Char if b == 0x1b => Ansi::Esc_,
-            Ansi::Esc_ => Ansi::Esc(b),
-            Ansi::Esc(b'[') => Ansi::Csi(b),
-            _ => panic!("invalid escape sequence in string"),
-        }
     }
 }
 
