@@ -68,16 +68,3 @@ pub async fn sleep(id: usize, ticks: u32) -> u64 {
     }
     timer
 }
-
-pub async fn display_timer(id: usize) {
-    use crate::vga::{self, Color, ScreenAttribute};
-    let color = ScreenAttribute::new(Color::LightCyan, Color::Black);
-    let scrn_pos = (1, 3 + 8 * id as u8);
-
-    loop {
-        let timer = Timer::Tick(id).await;
-        vga::display(&format!("{:>6}", timer), scrn_pos, color);
-        let timer = Timer::Tock(id).await;
-        vga::display(&format!("{:>6}", timer), scrn_pos, color);
-    }
-}

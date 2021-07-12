@@ -23,15 +23,17 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     use blog_os::task::{Task, executor::Executor, keyboard};
     use x86_64::VirtAddr;
 
-    println!("Async/Await");
+    println!("Concurrency with Async/Await");
     vga::set_default_attribute(
         ScreenAttribute::new(Color::LightGray, Color::Black)
     );
 
     // load GDT, IDT and enable interrupts
+    println!("initialize GDT and interrupts...");
     blog_os::init();
 
     // initialize global allocator
+    println!("initialize allocator...");
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
     let mut mapper = unsafe { memory::init(phys_mem_offset) };
     let mut frame_allocator = unsafe {
@@ -40,20 +42,34 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     allocator::init_heap(&mut mapper, &mut frame_allocator)
         .expect("heap initialization failed");
 
-    blog_os::pit::set_interval_timer(100);
-    println!("timer interval set to 10 ms (100 Hz)");
+    println!("setting timer tick interval to 20 Hz");
+    blog_os::pit::set_interval_timer(20);
 
     #[cfg(test)]
     test_main();
 
+    println!("initializing tasks...");
     let mut executor = Executor::new();
     executor.spawn(Task::new(keyboard::print_keypresses()));
     for id in 0..=6 {
-        executor.spawn(Task::new(timer::display_timer(id)));
+        executor.spawn(Task::new(display_timer(id)));
     }
     executor.spawn(Task::new(display_seconds(7)));
 
+    println!("running tasks...");
     executor.run();
+}
+
+async fn display_timer(id: usize) {
+    let color = ScreenAttribute::new(Color::LightCyan, Color::Black);
+    let scrn_pos = (1, 3 + 8 * id as u8);
+
+    loop {
+        let timer = timer::Timer::Tick(id).await;
+        vga::display(&format!("{:>6}", timer), scrn_pos, color);
+        let timer = timer::Timer::Tock(id).await;
+        vga::display(&format!("{:>6}", timer), scrn_pos, color);
+    }
 }
 
 async fn display_seconds(id: usize) {
@@ -62,7 +78,7 @@ async fn display_seconds(id: usize) {
 
     for seconds in 0..u32::MAX {
         vga::display(&format!("{:>6}", seconds), scrn_pos, color);
-        timer::sleep(id, 100).await;
+        timer::sleep(id, 20).await;
     }
 }
 
