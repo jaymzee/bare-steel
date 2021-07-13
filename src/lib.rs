@@ -11,11 +11,9 @@
 extern crate alloc;
 
 pub mod allocator;
-pub mod ansi;
 pub mod gdt;
 pub mod interrupts;
 pub mod memory;
-pub mod pit;
 pub mod serial;
 pub mod task;
 pub mod vga;

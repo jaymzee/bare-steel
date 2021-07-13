@@ -29,11 +29,11 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     );
 
     // load GDT, IDT and enable interrupts
-    println!("initialize GDT and interrupts...");
+    println!("loading GDT and enabling interrupts...");
     blog_os::init();
 
     // initialize global allocator
-    println!("initialize allocator...");
+    println!("initializing heap allocator...");
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
     let mut mapper = unsafe { memory::init(phys_mem_offset) };
     let mut frame_allocator = unsafe {
@@ -42,15 +42,15 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     allocator::init_heap(&mut mapper, &mut frame_allocator)
         .expect("heap initialization failed");
 
-    println!("setting timer tick interval to 20 Hz");
-    blog_os::pit::set_interval_timer(20);
+    println!("setting timer tick to 18.2 Hz");
+    timer::pit::set_divider(timer::pit::Chan::CH0, u16::MAX);
 
     #[cfg(test)]
     test_main();
 
-    blog_os::ansi::print_ansi("hello, world!\n");
+    vga::ansi::print_ansi("hello, \x1b[31mred\x1b[m world!\n");
 
-    println!("initializing tasks...");
+    println!("spawning tasks...");
     let mut executor = Executor::new();
     executor.spawn(Task::new(keyboard::print_keypresses()));
     for id in 0..=6 {
@@ -58,7 +58,6 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     }
     executor.spawn(Task::new(display_seconds(7)));
 
-    println!("running tasks...");
     executor.run();
 }
 

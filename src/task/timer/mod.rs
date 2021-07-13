@@ -1,3 +1,5 @@
+pub mod pit;
+
 use core::{
     sync::atomic::{self, AtomicU64},
     pin::Pin,
