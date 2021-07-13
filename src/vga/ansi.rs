@@ -1,10 +1,10 @@
-use crate::{print, println};
+use crate::{vga, print, println};
 use alloc::vec::Vec;
 use core::num::ParseIntError;
 
 const PARSE_ERR: &'static str = "failed to parse ansi sequence";
 
-pub fn print_ansi(s: &str) {
+pub fn write_str(s: &str) {
     let mut state = Ansi::Char;
     let mut index = 0;
 
@@ -32,7 +32,7 @@ pub fn print_ansi(s: &str) {
             }
             _ => panic!("{}: state={:?}, char={}", PARSE_ERR, state, c)
         };
-        //println!("{:x}: {:?} -> {:?}", c as u32, self.state, next_state);
+        //println!("{:x}: {:?} -> {:?}", c as u32, state, next_state);
         state = next_state;
     }
 }
@@ -65,19 +65,26 @@ fn csi(c: char, args: &str) {
 
 fn sgr(args: &str) {
     if args == "" || args == "0" {
-        println!("SGR RESET");
+        let fg = vga::Color::LightGray;
+        let bg = vga::Color::Black;
+        let attr = vga::ScreenAttribute::new(fg, bg);
+        vga::set_default_attribute(attr);
     } else {
         let cmds = parse_args(args, ';');
         for c in cmds {
             match c {
-                Ok(1) => println!("SGR INTENSITY"),
+                Ok(1) => println!("[SGR INTENSITY]"),
                 Ok(n) if (30..=37).contains(&n) => {
-                    let fg_color = n - 30;
-                    println!("SGR FG COLOR {}", fg_color);
+                    let fg = vga::Color::from_ansi(n - 30);
+                    let mut attr = vga::get_default_attribute();
+                    attr = vga::ScreenAttribute::new(fg, attr.bg());
+                    vga::set_default_attribute(attr);
                 }
                 Ok(n) if (40..=47).contains(&n) => {
-                    let bg_color = n - 40;
-                    println!("SGR BG COLOR {}", bg_color);
+                    let bg = vga::Color::from_ansi(n - 40);
+                    let mut attr = vga::get_default_attribute();
+                    attr = vga::ScreenAttribute::new(attr.fg(), bg);
+                    vga::set_default_attribute(attr);
                 }
                 Ok(n) => {
                     panic!("{}: bad arg {} in ESC[{}m", PARSE_ERR, n, args);

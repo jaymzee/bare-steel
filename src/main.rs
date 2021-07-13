@@ -48,7 +48,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     #[cfg(test)]
     test_main();
 
-    vga::ansi::print_ansi("hello, \x1b[31mred\x1b[m world!\n");
+    vga::ansi::write_str("hello, \x1b[31mred\x1b[m world!\n");
 
     println!("spawning tasks...");
     let mut executor = Executor::new();

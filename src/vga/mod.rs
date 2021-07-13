@@ -54,6 +54,46 @@ pub enum Color {
     White = 15,
 }
 
+impl From<u8> for Color {
+    fn from(n: u8) -> Self {
+        match n {
+            0 => Color::Black,
+            1 => Color::Blue,
+            2 => Color::Green,
+            3 => Color::Cyan,
+            4 => Color::Red,
+            5 => Color::Magenta,
+            6 => Color::Brown,
+            7 => Color::LightGray,
+            8 => Color::DarkGray,
+            9 => Color::LightBlue,
+           10 => Color::LightGreen,
+           11 => Color::LightCyan,
+           12 => Color::LightRed,
+           13 => Color::Pink,
+           14 => Color::Yellow,
+           15 => Color::White,
+           _ => panic!("cannot convert {} to Color", n),
+        }
+    }
+}
+
+impl Color {
+    fn from_ansi(n: u8) -> Self {
+        match n {
+            0 => Color::Black,
+            1 => Color::Red,
+            2 => Color::Green,
+            3 => Color::Yellow,
+            4 => Color::Blue,
+            5 => Color::Magenta,
+            6 => Color::Cyan,
+            7 => Color::White,
+            _ => panic!("cannot convert ansi {} to Color", n)
+        }
+    }
+}
+
 /// VGA text mode attribute value
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
@@ -62,6 +102,18 @@ pub struct ScreenAttribute(u8);
 impl ScreenAttribute {
     pub fn new(foreground: Color, background: Color) -> Self {
         Self((background as u8) << 4 | (foreground as u8))
+    }
+
+    pub fn bg(self) -> Color {
+        match self {
+            ScreenAttribute(n) => (n as u8 >> 4).into()
+        }
+    }
+
+    pub fn fg(self) -> Color {
+        match self {
+            ScreenAttribute(n) => (n as u8).into()
+        }
     }
 }
 
@@ -92,27 +144,29 @@ pub struct Writer {
 }
 
 impl Writer {
+    fn dma_screen(&mut self, byte: u8) {
+        if self.column >= BUFFER_WIDTH {
+            self.new_line();
+        }
+
+        let row = self.row;
+        let col = self.column;
+
+        self.buffer.chars[row][col].write(ScreenChar {
+            code: byte,
+            attr: self.attr,
+        });
+        self.column += 1;
+    }
+
     /// Writes an ASCII byte to the buffer.
     ///
     /// Wraps lines at `BUFFER_WIDTH`. Supports the `\n` newline character.
     pub fn write_byte(&mut self, byte: u8) {
         match byte {
             b'\n' => self.new_line(),
-            byte => {
-                if self.column >= BUFFER_WIDTH {
-                    self.new_line();
-                }
-
-                let row = self.row;
-                let col = self.column;
-
-                self.buffer.chars[row][col].write(ScreenChar {
-                    code: byte,
-                    attr: self.attr,
-                });
-                self.column += 1;
-                self.move_cursor();
-            }
+            0x20..=0x7e => self.dma_screen(byte),
+            _ => self.dma_screen(0xfe),
         }
     }
 
@@ -123,13 +177,8 @@ impl Writer {
     /// can't be printed in the VGA text
     /// mode.
     pub fn write_string(&mut self, s: &str) {
-        for byte in s.bytes() {
-            match byte {
-                // printable ASCII byte or newline
-                0x20..=0x7e | b'\n' => self.write_byte(byte),
-                // not part of printable ASCII range
-                _ => self.write_byte(0xfe),
-            }
+        for c in s.bytes() {
+            self.write_byte(c);
         }
     }
 
