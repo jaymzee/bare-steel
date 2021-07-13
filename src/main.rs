@@ -48,6 +48,8 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     #[cfg(test)]
     test_main();
 
+    blog_os::ansi::print_ansi("hello, world!\n");
+
     println!("initializing tasks...");
     let mut executor = Executor::new();
     executor.spawn(Task::new(keyboard::print_keypresses()));

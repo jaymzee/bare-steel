@@ -1,4 +1,10 @@
-pub fn parse_ansi(s: &str) {
+use crate::{print, println};
+use alloc::vec::Vec;
+use core::num::ParseIntError;
+
+const PARSE_ERR: &'static str = "failed to parse ansi sequence";
+
+pub fn print_ansi(s: &str) {
     let mut state = Ansi::Char;
     let mut index = 0;
 
@@ -8,7 +14,7 @@ pub fn parse_ansi(s: &str) {
                 Ansi::Esc
             }
             Ansi::Char => {
-                print_char(c);
+                print!("{}", c);
                 Ansi::Char
             }
             Ansi::Esc if c == '[' => {
@@ -24,23 +30,36 @@ pub fn parse_ansi(s: &str) {
                 csi(c, &s[index..i]);
                 Ansi::Char
             }
-            _ => panic!("failed to parse ansi sequence")
+            _ => panic!("{}: state={:?}, char={}", PARSE_ERR, state, c)
         };
         //println!("{:x}: {:?} -> {:?}", c as u32, self.state, next_state);
         state = next_state;
     }
 }
 
+fn parse_args(args: &str, delimiter: char) -> Vec<Result<u8, ParseIntError>> {
+    args.split(delimiter)
+        .map(|arg| arg.parse())
+        .collect()
+}
+
 fn csi(c: char, args: &str) {
     if c == 'm' {
         sgr(args);
     } else if c == 'H' {
-        let args: Vec<u8> = args.split(';')
-            .map(|s| s.parse().unwrap())
-            .collect();
-        println!("CUP {} {}", args[0], args[1]);
+        let args = parse_args(args, ';');
+
+        if args.len() != 2 {
+            panic!("{}: expected ESC[n;mH got ESC[{:?}H", PARSE_ERR, args);
+        }
+
+        if let (Ok(row), Ok(column)) = (&args[0], &args[1]) {
+            println!("CUP {} {}", row, column);
+        } else {
+            panic!("{}: expected ESC[n;mH got ESC[{:?}H", PARSE_ERR, args);
+        }
     } else {
-        panic!( "unknown CSI command {} in ansi sequence", c);
+        panic!("{}: unsupported CSI sequence ESC[{}{}", PARSE_ERR, args, c);
     }
 }
 
@@ -48,20 +67,24 @@ fn sgr(args: &str) {
     if args == "" || args == "0" {
         println!("SGR RESET");
     } else {
-        let args: Vec<_> = args.split(';')
-            .map(|s| s.parse())
-            .collect();
-        for arg in args {
-            let cmd = arg.expect("SGR parse error");
-
-            if cmd == 1 {
-                println!("SGR INTENSITY");
-            } else if (30..=37).contains(&cmd) {
-                let color = cmd - 30;
-                println!("SGR FG COLOR {}", color);
-            } else if (40..=47).contains(&cmd) {
-                let color = cmd - 40;
-                println!("SGR BG COLOR {}", color);
+        let cmds = parse_args(args, ';');
+        for c in cmds {
+            match c {
+                Ok(1) => println!("SGR INTENSITY"),
+                Ok(n) if (30..=37).contains(&n) => {
+                    let fg_color = n - 30;
+                    println!("SGR FG COLOR {}", fg_color);
+                }
+                Ok(n) if (40..=47).contains(&n) => {
+                    let bg_color = n - 40;
+                    println!("SGR BG COLOR {}", bg_color);
+                }
+                Ok(n) => {
+                    panic!("{}: bad arg {} in ESC[{}m", PARSE_ERR, n, args);
+                }
+                Err(e) => {
+                    panic!("{}: bad args in ESC[{}m: {}", PARSE_ERR, args, e);
+                }
             }
         }
     }
