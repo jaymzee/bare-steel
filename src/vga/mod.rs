@@ -102,13 +102,13 @@ impl ScreenAttribute {
         Self((background as u8) << 4 | (foreground as u8))
     }
 
-    pub fn bg(self) -> Color {
+    pub fn background(self) -> Color {
         match self {
             ScreenAttribute(n) => (n as u8 >> 4).into()
         }
     }
 
-    pub fn fg(self) -> Color {
+    pub fn foreground(self) -> Color {
         match self {
             ScreenAttribute(n) => (n as u8).into()
         }
@@ -154,7 +154,10 @@ pub struct Writer {
 }
 
 impl Writer {
-    pub fn write_screen_char(&mut self, ch: ScreenChar) {
+    /// Writes a ScreenChar to the text buffer.
+    ///
+    /// Wraps lines at `BUFFER_WIDTH`.
+    pub fn write_screen(&mut self, ch: ScreenChar) {
         if self.column >= BUFFER_WIDTH {
             self.new_line();
         }
@@ -166,20 +169,20 @@ impl Writer {
         self.column += 1;
     }
 
-    /// Writes an ASCII byte to the buffer.
+    /// Writes an ASCII byte to the text buffer.
     ///
     /// Wraps lines at `BUFFER_WIDTH`. Supports the `\n` newline character.
     pub fn write_byte(&mut self, byte: u8) {
         match byte {
             b'\n' => self.new_line(),
             0x20..=0x7e =>
-                self.write_screen_char(ScreenChar::new(byte, self.attr)),
+                self.write_screen(ScreenChar::new(byte, self.attr)),
             _ =>
-                self.write_screen_char(ScreenChar::new(0xfe, self.attr)),
+                self.write_screen(ScreenChar::new(0xfe, self.attr)),
         }
     }
 
-    /// Writes the given ASCII string to the buffer.
+    /// Writes the given ASCII string to the text buffer.
     ///
     /// Wraps lines at `BUFFER_WIDTH`. Supports the `\n` newline character.
     /// Does **not** support strings with non-ASCII characters, since they
@@ -208,7 +211,7 @@ impl Writer {
                 }
                 Ansi::Csi if (0x40..=0x7E).contains(&(c as u32)) => {
                     // final byte
-                    self.csi(c, &s[index..i]);
+                    self.write_csi(c, &s[index..i]);
                     Ansi::Start
                 }
                 _ => Ansi::Start
@@ -217,40 +220,49 @@ impl Writer {
         }
     }
 
-    fn csi(&mut self, c: char, args: &str) {
-        if c == 'm' {
-            self.sgr(args);
-        } else if c == 'H' {
-            let args = parse_args(args, ';');
-
-            if args.len() == 2 {
-                if let (Ok(_row), Ok(_column)) = (&args[0], &args[1]) {
-                    // CUP {} {}", row, column;
+    /// Writes an ansi CSI sequence to the text buffer.
+    ///
+    /// Supports the SGR (select graphic rendition) and 
+    /// CUP (Cursor Update Position) CSI
+    fn write_csi(&mut self, c: char, args: &str) {
+        match c {
+            'm' => self.write_sgr(args),
+            'H' => {
+                let coord = split(args, ';');
+                if coord.len() == 2 {
+                    if let (Ok(row), Ok(column)) = (&coord[0], &coord[1]) {
+                        self.row = (row - 1).into();
+                        self.column = (column - 1).into();
+                        self.move_cursor();
+                    }
                 }
             }
+            _ => ()
         }
     }
 
-    fn sgr(&mut self, args: &str) {
+    /// Writes an ansi SGR sequence to the text buffer.
+    ///
+    /// Supports setting the foreground and background color
+    fn write_sgr(&mut self, args: &str) {
         if args == "" || args == "0" {
             self.attr = Default::default();
         } else {
-            let cmds = parse_args(args, ';');
-            for c in cmds {
-                match c {
-                    Ok(1) => {},
+            for code in split(args, ';') {
+                match code {
+                    Ok(1) => (),
                     Ok(n) if (30..=37).contains(&n) => {
                         let fg = Color::from_ansi(n - 30);
-                        let bg = self.attr.bg();
+                        let bg = self.attr.background();
                         self.attr = ScreenAttribute::new(fg, bg);
                     }
                     Ok(n) if (40..=47).contains(&n) => {
                         let bg = Color::from_ansi(n - 40);
-                        let fg = self.attr.fg();
+                        let fg = self.attr.foreground();
                         self.attr = ScreenAttribute::new(fg, bg);
                     }
-                    Ok(_) => {}
-                    Err(_) => {}
+                    Ok(_) => (),
+                    Err(_) => (),
                 }
             }
         }
@@ -281,6 +293,7 @@ impl Writer {
         }
     }
 
+    /// Update cursor position in text buffer.
     fn move_cursor(&self) {
         use x86_64::instructions::port::Port;
         let mut addr = Port::new(0x3D4);
@@ -296,16 +309,20 @@ impl Writer {
     }
 }
 
+/// ansi escape sequence states
 #[derive(Debug, Copy, Clone)]
 pub enum Ansi {
-    Start,   // regular characters
-    Esc,    // in an escape sequence
-    Csi,    // in a Control Sequence Introducer
+    /// parsing regular characters
+    Start,
+    /// parsing escape sequence
+    Esc,
+    /// parsing Control Sequence Introducer
+    Csi,
 }
 
-fn parse_args(args: &str, delimiter: char) -> Vec<Result<u8, ParseIntError>> {
+fn split(args: &str, delimiter: char) -> Vec<Result<u8, ParseIntError>> {
     args.split(delimiter)
-        .map(|arg| arg.parse())
+        .map(|s| s.parse())
         .collect()
 }
 
@@ -316,6 +333,7 @@ impl fmt::Write for Writer {
     }
 }
 
+/// Write a string at the row and column in the text buffer
 pub fn display(s: &str, pos: (u8, u8), attr: ScreenAttribute) {
     let buffer = unsafe { &mut *(0xb8000 as *mut ScreenBuffer) };
     let mut row = (pos.0 - 1) as usize;
