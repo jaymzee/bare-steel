@@ -1,9 +1,9 @@
-pub mod ansi;
-
 use core::fmt;
 use lazy_static::lazy_static;
 use spin::Mutex;
 use volatile::Volatile;
+use alloc::vec::Vec;
+use core::num::ParseIntError;
 
 /// The height of the text buffer
 const BUFFER_HEIGHT: usize = 25;
@@ -23,12 +23,10 @@ lazy_static! {
     });
 }
 
-pub fn set_default_attribute(attr: ScreenAttribute) {
-    WRITER.lock().attr = attr;
-}
-
-pub fn get_default_attribute() -> ScreenAttribute {
-    WRITER.lock().attr
+pub fn set_attribute(attr: ScreenAttribute) {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        WRITER.lock().attr = attr;
+    });
 }
 
 /// The standard color palette in VGA text mode.
@@ -73,7 +71,7 @@ impl From<u8> for Color {
            13 => Color::Pink,
            14 => Color::Yellow,
            15 => Color::White,
-           _ => panic!("cannot convert {} to Color", n),
+           _ => Color::Black,
         }
     }
 }
@@ -89,7 +87,7 @@ impl Color {
             5 => Color::Magenta,
             6 => Color::Cyan,
             7 => Color::White,
-            _ => panic!("cannot convert ansi {} to Color", n)
+            _ => Color::Black,
         }
     }
 }
@@ -100,7 +98,7 @@ impl Color {
 pub struct ScreenAttribute(u8);
 
 impl ScreenAttribute {
-    pub fn new(foreground: Color, background: Color) -> Self {
+    pub const fn new(foreground: Color, background: Color) -> Self {
         Self((background as u8) << 4 | (foreground as u8))
     }
 
@@ -117,12 +115,24 @@ impl ScreenAttribute {
     }
 }
 
+impl Default for ScreenAttribute {
+    fn default() -> Self {
+        ScreenAttribute::new(Color::LightGray, Color::Black)
+    }
+}
+
 /// A screen character in the VGA text buffer
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
-struct ScreenChar {
+pub struct ScreenChar {
     code: u8,       // ascii code
     attr: ScreenAttribute,
+}
+
+impl ScreenChar {
+    pub fn new(code: u8, attr: ScreenAttribute) -> Self {
+        Self { code, attr }
+    }
 }
 
 /// A structure representing the VGA text buffer
@@ -144,7 +154,7 @@ pub struct Writer {
 }
 
 impl Writer {
-    fn dma_screen(&mut self, byte: u8) {
+    pub fn write_screen_char(&mut self, ch: ScreenChar) {
         if self.column >= BUFFER_WIDTH {
             self.new_line();
         }
@@ -152,10 +162,7 @@ impl Writer {
         let row = self.row;
         let col = self.column;
 
-        self.buffer.chars[row][col].write(ScreenChar {
-            code: byte,
-            attr: self.attr,
-        });
+        self.buffer.chars[row][col].write(ch);
         self.column += 1;
     }
 
@@ -165,8 +172,10 @@ impl Writer {
     pub fn write_byte(&mut self, byte: u8) {
         match byte {
             b'\n' => self.new_line(),
-            0x20..=0x7e => self.dma_screen(byte),
-            _ => self.dma_screen(0xfe),
+            0x20..=0x7e =>
+                self.write_screen_char(ScreenChar::new(byte, self.attr)),
+            _ =>
+                self.write_screen_char(ScreenChar::new(0xfe, self.attr)),
         }
     }
 
@@ -175,10 +184,75 @@ impl Writer {
     /// Wraps lines at `BUFFER_WIDTH`. Supports the `\n` newline character.
     /// Does **not** support strings with non-ASCII characters, since they
     /// can't be printed in the VGA text
-    /// mode.
+    /// mode. Supports ANSI escape codes for color.
     pub fn write_string(&mut self, s: &str) {
-        for c in s.bytes() {
-            self.write_byte(c);
+        let mut state = Ansi::Start;
+        let mut index = 0;
+
+        for (i, c) in s.chars().enumerate() {
+            let next_state = match state {
+                Ansi::Start if c == '\x1b' => {
+                    Ansi::Esc
+                }
+                Ansi::Start => {
+                    self.write_byte(c as u8);
+                    Ansi::Start
+                }
+                Ansi::Esc if c == '[' => {
+                    index = i + 1;
+                    Ansi::Csi
+                }
+                Ansi::Csi if (0x20..=0x3f).contains(&(c as u32)) => {
+                    // parameters and intermediate bytes
+                    Ansi::Csi
+                }
+                Ansi::Csi if (0x40..=0x7E).contains(&(c as u32)) => {
+                    // final byte
+                    self.csi(c, &s[index..i]);
+                    Ansi::Start
+                }
+                _ => Ansi::Start
+            };
+            state = next_state;
+        }
+    }
+
+    fn csi(&mut self, c: char, args: &str) {
+        if c == 'm' {
+            self.sgr(args);
+        } else if c == 'H' {
+            let args = parse_args(args, ';');
+
+            if args.len() == 2 {
+                if let (Ok(_row), Ok(_column)) = (&args[0], &args[1]) {
+                    // CUP {} {}", row, column;
+                }
+            }
+        }
+    }
+
+    fn sgr(&mut self, args: &str) {
+        if args == "" || args == "0" {
+            self.attr = Default::default();
+        } else {
+            let cmds = parse_args(args, ';');
+            for c in cmds {
+                match c {
+                    Ok(1) => {},
+                    Ok(n) if (30..=37).contains(&n) => {
+                        let fg = Color::from_ansi(n - 30);
+                        let bg = self.attr.bg();
+                        self.attr = ScreenAttribute::new(fg, bg);
+                    }
+                    Ok(n) if (40..=47).contains(&n) => {
+                        let bg = Color::from_ansi(n - 40);
+                        let fg = self.attr.fg();
+                        self.attr = ScreenAttribute::new(fg, bg);
+                    }
+                    Ok(_) => {}
+                    Err(_) => {}
+                }
+            }
         }
     }
 
@@ -220,6 +294,19 @@ impl Writer {
             data.write((offset >> 8) as u8);
         }
     }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum Ansi {
+    Start,   // regular characters
+    Esc,    // in an escape sequence
+    Csi,    // in a Control Sequence Introducer
+}
+
+fn parse_args(args: &str, delimiter: char) -> Vec<Result<u8, ParseIntError>> {
+    args.split(delimiter)
+        .map(|arg| arg.parse())
+        .collect()
 }
 
 impl fmt::Write for Writer {

@@ -23,10 +23,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     use blog_os::task::{Task, executor::Executor, keyboard};
     use x86_64::VirtAddr;
 
-    println!("Concurrency with Async/Await");
-    vga::set_default_attribute(
-        ScreenAttribute::new(Color::LightGray, Color::Black)
-    );
+    vga::set_attribute(Default::default());
 
     // load GDT, IDT and enable interrupts
     println!("loading GDT and enabling interrupts...");
@@ -48,7 +45,8 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     #[cfg(test)]
     test_main();
 
-    vga::ansi::write_str("hello, \x1b[31mred\x1b[m world!\n");
+    // do not use ansi until heap allocator is initialized
+    println!("ansi color \x1b[32mgreen\x1b[m and \x1b[31mred\x1b[m text!");
 
     println!("spawning tasks...");
     let mut executor = Executor::new();
