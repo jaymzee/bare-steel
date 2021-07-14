@@ -7,7 +7,6 @@
 #![feature(alloc_error_handler)]
 #![feature(const_mut_refs)]
 
-//#[macro_use]    // for format! macro
 extern crate alloc;
 
 pub mod allocator;

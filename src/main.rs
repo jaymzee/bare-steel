@@ -11,7 +11,7 @@
 extern crate alloc;
 
 use blog_os::{println, task::timer};
-use blog_os::vga::{self, Color, ScreenAttribute};
+use blog_os::vga::text;
 use bootloader::{BootInfo, entry_point};
 use core::panic::PanicInfo;
 
@@ -23,7 +23,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     use blog_os::task::{Task, executor::Executor, keyboard};
     use x86_64::VirtAddr;
 
-    vga::clear_screen(Default::default());
+    text::clear_screen(Default::default());
 
     // load GDT, IDT and enable interrupts
     println!("\n\nloading GDT and enabling interrupts...");
@@ -61,23 +61,25 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 }
 
 async fn display_timer(id: usize) {
-    let color = ScreenAttribute::new(Color::LightCyan, Color::Black);
+    use text::Color;
+    let color = text::Attribute::new(Color::LightCyan, Color::Black);
     let scrn_pos = (1, 3 + 8 * id as u8);
 
     loop {
         let timer = timer::Timer::Tick(id).await;
-        vga::display(&format!("{:>6}", timer), scrn_pos, color);
+        text::display(&format!("{:>6}", timer), scrn_pos, color);
         let timer = timer::Timer::Tock(id).await;
-        vga::display(&format!("{:>6}", timer), scrn_pos, color);
+        text::display(&format!("{:>6}", timer), scrn_pos, color);
     }
 }
 
 async fn display_seconds(id: usize) {
-    let color = ScreenAttribute::new(Color::Yellow, Color::Black);
+    use text::Color;
+    let color = text::Attribute::new(Color::Yellow, Color::Black);
     let scrn_pos = (1, 3 + 8 * id as u8);
 
     for seconds in 0..u32::MAX {
-        vga::display(&format!("{:>6}", seconds), scrn_pos, color);
+        text::display(&format!("{:>6}", seconds), scrn_pos, color);
         timer::sleep(id, 20).await;
     }
 }

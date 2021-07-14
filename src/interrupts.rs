@@ -70,9 +70,8 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(
 extern "x86-interrupt" fn timer_interrupt_handler(
     _stack_frame: InterruptStackFrame)
 {
-    use crate::task::timer;
+    use crate::{task::timer, vga::text};
     use core::sync::atomic::{AtomicU64, Ordering};
-    use crate::vga;
 
     static TIMER: AtomicU64 = AtomicU64::new(0);
     let timer = TIMER.fetch_add(1, Ordering::Relaxed);
@@ -83,7 +82,7 @@ extern "x86-interrupt" fn timer_interrupt_handler(
         2 => "\\",
         _ => "|",
     };
-    vga::display(spinner, (1, 1), Default::default());
+    text::display(spinner, (1, 1), Default::default());
 
     unsafe {
         PICS.lock()

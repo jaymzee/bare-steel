@@ -1,3 +1,7 @@
+pub mod executor;
+pub mod keyboard;
+pub mod timer;
+
 use alloc::boxed::Box;
 use core::{
     future::Future,
@@ -5,10 +9,6 @@ use core::{
     sync::atomic::{AtomicU64, Ordering},
     task::{Context, Poll},
 };
-
-pub mod executor;
-pub mod keyboard;
-pub mod timer;
 
 pub struct Task {
     id: TaskId,

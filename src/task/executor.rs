@@ -62,27 +62,27 @@ impl Executor {
     }
 
     fn display_thread_is_running(running: bool) {
-        use crate::vga::{display, Color, ScreenAttribute};
-        let green = ScreenAttribute::new(Color::LightGreen, Color::Black);
-        let cyan = ScreenAttribute::new(Color::LightCyan, Color::Black);
-        let gray = ScreenAttribute::new(Color::DarkGray, Color::Black);
+        use crate::vga::text::{self, Color};
+        let green = text::Attribute::new(Color::LightGreen, Color::Black);
+        let cyan = text::Attribute::new(Color::LightCyan, Color::Black);
+        let gray = text::Attribute::new(Color::DarkGray, Color::Black);
 
         if running {
-            display("[    / SLEEP]", (1, 68), gray);
-            display("RUN", (1, 69), green);
+            text::display("[    / SLEEP]", (1, 68), gray);
+            text::display("RUN", (1, 69), green);
         } else {
-            display("[RUN /      ]", (1, 68), gray);
-            display("SLEEP", (1, 75), cyan);
+            text::display("[RUN /      ]", (1, 68), gray);
+            text::display("SLEEP", (1, 75), cyan);
         }
     }
 
     fn sleep_if_idle(&self) {
-        use x86_64::instructions::interrupts::{self, enable_and_hlt};
+        use x86_64::instructions::interrupts;
 
         interrupts::disable();
         if self.task_queue.is_empty() {
             Self::display_thread_is_running(false);
-            enable_and_hlt();
+            interrupts::enable_and_hlt();
             Self::display_thread_is_running(true);
         } else {
             interrupts::enable();
