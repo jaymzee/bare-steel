@@ -72,7 +72,7 @@ extern "x86-interrupt" fn timer_interrupt_handler(
 {
     use crate::task::timer;
     use core::sync::atomic::{AtomicU64, Ordering};
-    use crate::vga::{self, Color, ScreenAttribute};
+    use crate::vga;
 
     static TIMER: AtomicU64 = AtomicU64::new(0);
     let timer = TIMER.fetch_add(1, Ordering::Relaxed);
@@ -83,8 +83,7 @@ extern "x86-interrupt" fn timer_interrupt_handler(
         2 => "\\",
         _ => "|",
     };
-    let attr = ScreenAttribute::new(Color::White, Color::Black);
-    vga::display(spinner, (1, 1), attr);
+    vga::display(spinner, (1, 1), Default::default());
 
     unsafe {
         PICS.lock()

@@ -23,10 +23,10 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     use blog_os::task::{Task, executor::Executor, keyboard};
     use x86_64::VirtAddr;
 
-    vga::set_attribute(Default::default());
+    vga::clear_screen(Default::default());
 
     // load GDT, IDT and enable interrupts
-    println!("loading GDT and enabling interrupts...");
+    println!("\n\nloading GDT and enabling interrupts...");
     blog_os::init();
 
     // initialize global allocator
@@ -46,7 +46,8 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     test_main();
 
     // do not use ansi until heap allocator is initialized
-    println!("ansi color \x1b[32mgreen\x1b[m and \x1b[31mred\x1b[m text!");
+    println!("\x1b[20;1Hansi color \x1b[32mgreen\x1b[0m \
+             and \x1b[31mred\x1b[0m text!");
 
     println!("spawning tasks...");
     let mut executor = Executor::new();

@@ -10,16 +10,25 @@ const BUFFER_HEIGHT: usize = 25;
 /// The width of the text buffer
 const BUFFER_WIDTH: usize = 80;
 
+/// indicate Ansi sequence error with a special character
+const ANSI_ERROR: ScreenChar = ScreenChar::new(13, ScreenAttribute::error());
+
 lazy_static! {
     /// A global 'Writer' instance that can be used for printing to the
     /// VGA text buffer
     ///
     /// Used by the `print!` and `println!` macros.
-    pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
+    static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
         column: 0,
         row: BUFFER_HEIGHT - 1,
-        attr: ScreenAttribute::new(Color::LightCyan, Color::Black),
+        attr: Default::default(),
         buffer: unsafe { &mut *(0xb8000 as *mut ScreenBuffer) },
+    });
+}
+
+pub fn clear_screen(attr: ScreenAttribute) {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        WRITER.lock().clear_screen(attr);
     });
 }
 
@@ -102,6 +111,14 @@ impl ScreenAttribute {
         Self((background as u8) << 4 | (foreground as u8))
     }
 
+    pub const fn default() -> Self {
+        ScreenAttribute::new(Color::LightGray, Color::Black)
+    }
+
+    pub const fn error() -> Self {
+        ScreenAttribute::new(Color::White, Color::Black)
+    }
+
     pub fn background(self) -> Color {
         match self {
             ScreenAttribute(n) => (n as u8 >> 4).into()
@@ -117,20 +134,20 @@ impl ScreenAttribute {
 
 impl Default for ScreenAttribute {
     fn default() -> Self {
-        ScreenAttribute::new(Color::LightGray, Color::Black)
+        Self::default()
     }
 }
 
 /// A screen character in the VGA text buffer
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
-pub struct ScreenChar {
+struct ScreenChar {
     code: u8,       // ascii code
     attr: ScreenAttribute,
 }
 
 impl ScreenChar {
-    pub fn new(code: u8, attr: ScreenAttribute) -> Self {
+    pub const fn new(code: u8, attr: ScreenAttribute) -> Self {
         Self { code, attr }
     }
 }
@@ -146,7 +163,7 @@ struct ScreenBuffer {
 ///
 /// Wraps lines at `BUFFER_WIDTH`. Supports newline characters and implements
 /// the `core::fmt::Write trait.
-pub struct Writer {
+struct Writer {
     row: usize,
     column: usize,
     attr: ScreenAttribute,
@@ -154,41 +171,13 @@ pub struct Writer {
 }
 
 impl Writer {
-    /// Writes a ScreenChar to the text buffer.
-    ///
-    /// Wraps lines at `BUFFER_WIDTH`.
-    pub fn write_screen(&mut self, ch: ScreenChar) {
-        if self.column >= BUFFER_WIDTH {
-            self.new_line();
-        }
-
-        let row = self.row;
-        let col = self.column;
-
-        self.buffer.chars[row][col].write(ch);
-        self.column += 1;
-    }
-
-    /// Writes an ASCII byte to the text buffer.
-    ///
-    /// Wraps lines at `BUFFER_WIDTH`. Supports the `\n` newline character.
-    pub fn write_byte(&mut self, byte: u8) {
-        match byte {
-            b'\n' => self.new_line(),
-            0x20..=0x7e =>
-                self.write_screen(ScreenChar::new(byte, self.attr)),
-            _ =>
-                self.write_screen(ScreenChar::new(0xfe, self.attr)),
-        }
-    }
-
     /// Writes the given ASCII string to the text buffer.
     ///
     /// Wraps lines at `BUFFER_WIDTH`. Supports the `\n` newline character.
     /// Does **not** support strings with non-ASCII characters, since they
     /// can't be printed in the VGA text
     /// mode. Supports ANSI escape codes for color.
-    pub fn write_string(&mut self, s: &str) {
+    fn write_string(&mut self, s: &str) {
         let mut state = Ansi::Start;
         let mut index = 0;
 
@@ -206,17 +195,49 @@ impl Writer {
                     Ansi::Csi
                 }
                 Ansi::Csi if (0x20..=0x3f).contains(&(c as u32)) => {
-                    // parameters and intermediate bytes
+                    // CSI parameters and intermediate bytes
                     Ansi::Csi
                 }
                 Ansi::Csi if (0x40..=0x7E).contains(&(c as u32)) => {
-                    // final byte
+                    // final byte of CSI sequence
                     self.write_csi(c, &s[index..i]);
                     Ansi::Start
                 }
-                _ => Ansi::Start
+                _ => {
+                    self.write_screen(ANSI_ERROR);
+                    Ansi::Start // error happened so better reset state
+                }
             };
             state = next_state;
+        }
+        self.move_cursor();
+    }
+
+    /// Writes a ScreenChar to the text buffer.
+    ///
+    /// Wraps lines at `BUFFER_WIDTH`.
+    fn write_screen(&mut self, ch: ScreenChar) {
+        if self.column >= BUFFER_WIDTH {
+            self.new_line();
+        }
+
+        let row = self.row;
+        let col = self.column;
+
+        self.buffer.chars[row][col].write(ch);
+        self.column += 1;
+    }
+
+    /// Writes an ASCII byte to the text buffer.
+    ///
+    /// Wraps lines at `BUFFER_WIDTH`. Supports the `\n` newline character.
+    fn write_byte(&mut self, byte: u8) {
+        match byte {
+            b'\n' => self.new_line(),
+            0x20..=0x7e =>
+                self.write_screen(ScreenChar::new(byte, self.attr)),
+            _ =>
+                self.write_screen(ScreenChar::new(0xfe, self.attr)),
         }
     }
 
@@ -233,11 +254,10 @@ impl Writer {
                     if let (Ok(row), Ok(column)) = (&coord[0], &coord[1]) {
                         self.row = (row - 1).into();
                         self.column = (column - 1).into();
-                        self.move_cursor();
                     }
                 }
             }
-            _ => ()
+            _ => self.write_screen(ANSI_ERROR),
         }
     }
 
@@ -250,7 +270,6 @@ impl Writer {
         } else {
             for code in split(args, ';') {
                 match code {
-                    Ok(1) => (),
                     Ok(n) if (30..=37).contains(&n) => {
                         let fg = Color::from_ansi(n - 30);
                         let bg = self.attr.background();
@@ -261,8 +280,8 @@ impl Writer {
                         let fg = self.attr.foreground();
                         self.attr = ScreenAttribute::new(fg, bg);
                     }
-                    Ok(_) => (),
-                    Err(_) => (),
+                    Ok(_) => self.write_screen(ANSI_ERROR),
+                    Err(_) => self.write_screen(ANSI_ERROR),
                 }
             }
         }
@@ -287,10 +306,20 @@ impl Writer {
 
     /// Clears a row by overwriting it with blank characters.
     fn clear_row(&mut self, row: usize) {
-        let blank = ScreenChar { code: b' ', attr: self.attr };
+        let blank = ScreenChar::new(b' ', self.attr);
         for col in 0..BUFFER_WIDTH {
             self.buffer.chars[row][col].write(blank);
         }
+    }
+
+    fn clear_screen(&mut self, attr: ScreenAttribute) {
+        self.attr = attr;
+        for r in 0..BUFFER_HEIGHT {
+            self.clear_row(r);
+        }
+        self.row = 0;
+        self.column = 0;
+        self.move_cursor();
     }
 
     /// Update cursor position in text buffer.
@@ -311,7 +340,7 @@ impl Writer {
 
 /// ansi escape sequence states
 #[derive(Debug, Copy, Clone)]
-pub enum Ansi {
+enum Ansi {
     /// parsing regular characters
     Start,
     /// parsing escape sequence
