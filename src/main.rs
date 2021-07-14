@@ -52,10 +52,11 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     println!("spawning tasks...");
     let mut executor = Executor::new();
     executor.spawn(Task::new(keyboard::print_keypresses()));
-    for id in 0..=6 {
+    for id in 0..=5 {
         executor.spawn(Task::new(display_timer(id)));
     }
-    executor.spawn(Task::new(display_seconds(7)));
+    executor.spawn(Task::new(display_seconds(6)));
+    executor.spawn(Task::new(display_random(7)));
 
     executor.run();
 }
@@ -80,7 +81,23 @@ async fn display_seconds(id: usize) {
 
     for seconds in 0..u32::MAX {
         text::display(&format!("{:>6}", seconds), scrn_pos, color);
-        timer::sleep(id, 20).await;
+        timer::sleep(id, 18).await;
+    }
+}
+
+async fn display_random(id: usize) {
+    use text::Color;
+    use rand::rngs::SmallRng;
+    use rand::{Rng, SeedableRng};
+
+    let color = text::Attribute::new(Color::Green, Color::Black);
+    let scrn_pos = (1, 3 + 8 * id as u8);
+    let mut rng = SmallRng::seed_from_u64(42);
+
+    loop {
+        let num: u8 = rng.gen();
+        text::display(&format!("{:>6}", num), scrn_pos, color);
+        timer::sleep(id, 9).await;
     }
 }
 
