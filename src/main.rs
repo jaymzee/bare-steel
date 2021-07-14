@@ -55,8 +55,9 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     for id in 0..=5 {
         executor.spawn(Task::new(display_timer(id)));
     }
-    executor.spawn(Task::new(display_seconds(6)));
-    executor.spawn(Task::new(display_random(7)));
+    executor.spawn(Task::new(serial_sender(5)));
+    executor.spawn(Task::new(display_random(6)));
+    executor.spawn(Task::new(display_seconds(7)));
 
     executor.run();
 }
@@ -98,6 +99,19 @@ async fn display_random(id: usize) {
         let num: u8 = rng.gen();
         text::display(&format!("{:>6}", num), scrn_pos, color);
         timer::sleep(id, 9).await;
+    }
+}
+
+async fn serial_sender(id: usize) {
+    use text::Color;
+    use blog_os::serial_println;
+    let color = text::Attribute::new(Color::Blue, Color::Black);
+    let scrn_pos = (1, 3 + 8 * id as u8);
+
+    for seconds in 0..u32::MAX {
+        serial_println!("greetings {}", seconds);
+        text::display(&format!("{:>6}", seconds), scrn_pos, color);
+        timer::sleep(id, 18).await;
     }
 }
 
