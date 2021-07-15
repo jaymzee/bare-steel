@@ -71,7 +71,8 @@ pub fn test_runner(tests: &[&dyn Testable]) {
 
 pub fn test_panic_handler(info: &PanicInfo) -> ! {
     print_test_failed();
-    serial_println!("\x1b[31;1mError\x1b[0m: {}\n", info);
+    serial_println!("\x1b[31;1mError\x1b[0m: {}", info);
+    serial_println!();
     exit_qemu(QemuExitCode::Failed);
 }
 
@@ -83,12 +84,15 @@ pub fn print_test_passed() {
 }
 
 pub fn print_test_failed() {
-    serial_println!("\x1b[31;1m{}\x1b[0m\n", "FAILED");
+    serial_println!("\x1b[31;1m{}\x1b[0m", "FAILED");
+    serial_println!();
 }
 
 pub fn print_test_failed_because(msg: &str) {
-    serial_println!("\x1b[31;1m{}\x1b[0m\n", "FAILED");
-    serial_println!("\x1b[31;1mError\x1b[0m: {}\n", msg);
+    serial_println!("\x1b[31;1m{}\x1b[0m", "FAILED");
+    serial_println!();
+    serial_println!("\x1b[31;1mError\x1b[0m: {}", msg);
+    serial_println!();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
