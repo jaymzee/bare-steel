@@ -60,28 +60,28 @@ impl Writer {
     /// mode. Supports ANSI escape codes for color.
     fn write_string(&mut self, s: &str) {
         let mut state = Ansi::Start;
-        let mut index = 0;
+        let mut arg_start = 0;
 
-        for (i, c) in s.chars().enumerate() {
-            let next_state = match state {
-                Ansi::Start if c == '\x1b' => {
+        for (i, c) in s.bytes().enumerate() {
+            let next_state = match (state, c) {
+                (Ansi::Start, b'\x1b') => {
                     Ansi::Esc
                 }
-                Ansi::Start => {
-                    self.write_byte(c as u8);
+                (Ansi::Start, _) => {
+                    self.write_byte(c);
                     Ansi::Start
                 }
-                Ansi::Esc if c == '[' => {
-                    index = i + 1;
+                (Ansi::Esc,  b'[') => {
+                    arg_start = i + 1;
                     Ansi::Csi
                 }
-                Ansi::Csi if (0x20..=0x3f).contains(&(c as u32)) => {
+                (Ansi::Csi, 0x20..=0x3f) => {
                     // CSI parameters and intermediate bytes
                     Ansi::Csi
                 }
-                Ansi::Csi if (0x40..=0x7E).contains(&(c as u32)) => {
+                (Ansi::Csi, 0x40..=0x7E) => {
                     // final byte of CSI sequence
-                    self.write_csi(c, &s[index..i]);
+                    self.write_csi(c, &s[arg_start..i]);
                     Ansi::Start
                 }
                 _ => {
@@ -126,10 +126,10 @@ impl Writer {
     ///
     /// Supports the SGR (select graphic rendition) and
     /// CUP (Cursor Update Position) CSI
-    fn write_csi(&mut self, c: char, args: &str) {
-        match c {
-            'm' => self.write_sgr(args),
-            'H' => {
+    fn write_csi(&mut self, n: u8, args: &str) {
+        match n {
+            b'm' => self.write_sgr(args),
+            b'H' => {
                 match split(args, ';').as_slice() {
                     [Ok(r), Ok(c)] => self.set_cursor_position(*r, *c),
                     _ => self.write_screen(ANSI_ERROR)
@@ -189,8 +189,6 @@ impl Writer {
             self.buffer.chars[row][col].write(blank);
         }
     }
-
-
 
     /// Update cursor position in text buffer.
     fn move_cursor(&self) {
