@@ -52,7 +52,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     println!("spawning tasks...");
     let mut executor = Executor::new();
     executor.spawn(Task::new(keyboard::print_keypresses()));
-    for id in 0..=5 {
+    for id in 0..5 {
         executor.spawn(Task::new(display_timer(id)));
     }
     executor.spawn(Task::new(serial_sender(5)));
