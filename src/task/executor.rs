@@ -1,7 +1,7 @@
-use super::{Task, TaskId};
 use alloc::{collections::BTreeMap, sync::Arc, task::Wake};
-use core::task::{Waker, Context, Poll};
+use core::task::{Context, Poll, Waker};
 use crossbeam_queue::ArrayQueue;
+use super::{Task, TaskId};
 
 pub struct Executor {
     tasks: BTreeMap<TaskId, Task>,
@@ -16,14 +16,6 @@ impl Executor {
             task_queue: Arc::new(ArrayQueue::new(100)),
             waker_cache: BTreeMap::new(),
         }
-    }
-
-    pub fn spawn(&mut self, task: Task) {
-        let task_id = task.id;
-        if self.tasks.insert(task_id, task).is_some() {
-            panic!("task with same ID already in tasks");
-        }
-        self.task_queue.push(task_id).expect("queue full");
     }
 
     pub fn run(&mut self) -> ! {
@@ -59,6 +51,14 @@ impl Executor {
                 Poll::Pending => {}
             }
         }
+    }
+
+    pub fn spawn(&mut self, task: Task) {
+        let task_id = task.id;
+        if self.tasks.insert(task_id, task).is_some() {
+            panic!("task with same ID already in tasks");
+        }
+        self.task_queue.push(task_id).expect("queue full");
     }
 
     fn display_thread_is_running(running: bool) {

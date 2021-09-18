@@ -2,11 +2,11 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 
+use blog_os::{exit_qemu, QemuExitCode, serial_print, print_test_passed};
+use bootloader::{BootInfo, entry_point};
 use core::panic::PanicInfo;
 use lazy_static::lazy_static;
-use blog_os::{exit_qemu, QemuExitCode, serial_print, print_test_passed};
-use x86_64::structures::idt::{InterruptStackFrame, InterruptDescriptorTable};
-use bootloader::{BootInfo, entry_point};
+use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 entry_point!(kernel_main);
 

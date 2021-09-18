@@ -1,12 +1,10 @@
 #![no_std]
 #![no_main]
 
-use blog_os::{
-    print_test_name, print_test_passed, print_test_failed_because,
-    exit_qemu, QemuExitCode,
-};
+use blog_os::{print_test_name, print_test_passed, print_test_failed_because};
+use blog_os::{exit_qemu, QemuExitCode};
+use bootloader::{BootInfo, entry_point};
 use core::panic::PanicInfo;
-use bootloader::{entry_point, BootInfo};
 
 entry_point!(kernel_main);
 

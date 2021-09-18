@@ -6,10 +6,10 @@
 
 extern crate alloc;
 
-use bootloader::{entry_point, BootInfo};
-use core::panic::PanicInfo;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
+use bootloader::{entry_point, BootInfo};
+use core::panic::PanicInfo;
 
 entry_point!(main);
 

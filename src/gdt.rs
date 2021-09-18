@@ -1,6 +1,6 @@
 use lazy_static::lazy_static;
-use x86_64::structures::gdt::{GlobalDescriptorTable, Descriptor,
-                              SegmentSelector};
+use x86_64::structures::gdt::GlobalDescriptorTable;
+use x86_64::structures::gdt::{Descriptor, SegmentSelector};
 use x86_64::structures::tss::TaskStateSegment;
 use x86_64::VirtAddr;
 

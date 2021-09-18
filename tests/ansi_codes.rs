@@ -6,9 +6,9 @@
 
 extern crate alloc;
 
+use blog_os::println;
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
-use blog_os::println;
 
 entry_point!(main);
 

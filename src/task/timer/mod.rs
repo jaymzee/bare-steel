@@ -1,10 +1,10 @@
 pub mod pit;
 
 use core::{
-    sync::atomic::{self, AtomicU64},
-    pin::Pin,
-    task::{Context, Poll},
     future::Future,
+    pin::Pin,
+    sync::atomic::{self, AtomicU64},
+    task::{Context, Poll},
 };
 use futures_util::task::AtomicWaker;
 

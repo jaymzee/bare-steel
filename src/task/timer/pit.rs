@@ -8,8 +8,8 @@
  * mode/command register 43h
  */
 
-use x86_64::instructions::port::Port;
 use core::convert::TryInto;
+use x86_64::instructions::port::Port;
 
 const CLK_FREQ: u32 = 1193182;
 

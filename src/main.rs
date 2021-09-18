@@ -9,7 +9,6 @@
 
 #[macro_use]    // for format! macro
 extern crate alloc;
-
 use blog_os::{println, task::timer};
 use blog_os::vga::text;
 use bootloader::{BootInfo, entry_point};
@@ -20,7 +19,7 @@ entry_point!(kernel_main);
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
     use blog_os::allocator;
     use blog_os::memory::{self, BootInfoFrameAllocator};
-    use blog_os::task::{Task, executor::Executor, keyboard};
+    use blog_os::task::{executor::Executor, Task, keyboard};
     use x86_64::VirtAddr;
 
     text::clear_screen(Default::default());
@@ -87,9 +86,8 @@ async fn display_seconds(id: usize) {
 }
 
 async fn display_random(id: usize) {
+    use rand::{rngs::SmallRng, Rng, SeedableRng};
     use text::Color;
-    use rand::rngs::SmallRng;
-    use rand::{Rng, SeedableRng};
 
     let color = text::Attribute::new(Color::Green, Color::Black);
     let scrn_pos = (1, 3 + 8 * id as u8);
@@ -103,8 +101,8 @@ async fn display_random(id: usize) {
 }
 
 async fn serial_sender(id: usize) {
-    use text::Color;
     use blog_os::serial_println;
+    use text::Color;
     let color = text::Attribute::new(Color::Blue, Color::Black);
     let scrn_pos = (1, 3 + 8 * id as u8);
 
