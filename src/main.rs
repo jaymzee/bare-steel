@@ -16,11 +16,12 @@ use core::panic::PanicInfo;
 
 entry_point!(kernel_main);
 
-fn kernel_main(boot_info: &'static BootInfo) -> ! {
+fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     use blog_os::allocator;
     use blog_os::memory::{self, BootInfoFrameAllocator};
     use blog_os::task::{executor::Executor, Task, keyboard};
     use x86_64::VirtAddr;
+    use bootloader::boot_info::Optional::Some as OSome;
 
     text::clear_screen(Default::default());
 
@@ -30,13 +31,17 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     // initialize global allocator
     println!("initializing heap allocator...");
-    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
-    let mut mapper = unsafe { memory::init(phys_mem_offset) };
-    let mut frame_allocator = unsafe {
-        BootInfoFrameAllocator::init(&boot_info.memory_map)
-    };
-    allocator::init_heap(&mut mapper, &mut frame_allocator)
-        .expect("heap initialization failed");
+    if let OSome(phys_mem_offset) = boot_info.physical_memory_offset {
+        let phys_mem_offset = VirtAddr::new(phys_mem_offset);
+        let mut mapper = unsafe { memory::init(phys_mem_offset) };
+        let mut frame_allocator = unsafe {
+            BootInfoFrameAllocator::init(&boot_info.memory_regions)
+        };
+        allocator::init_heap(&mut mapper, &mut frame_allocator)
+            .expect("heap initialization failed");
+    } else {
+        panic!("could not get physical_memory_offset")
+    }
 
     println!("setting timer tick to 18.2 Hz");
     timer::pit::set_divider(timer::pit::Chan::CH0, u16::MAX);
