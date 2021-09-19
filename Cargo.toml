@@ -1,21 +1,15 @@
 [package]
-name = "boot"
+name = "basic_example"
 version = "0.1.0"
 authors = ["jaymzee <jaymzee@users.noreply.github.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-# the profile used for `cargo build`
-[profile.dev]
-panic = "abort" # disable stack unwinding on panic
-
-# the profile used for `cargo build --release`
-[profile.release]
-panic = "abort" # disable stack unwinding on pain
-
-[package.metadata.bootimage]
-run-args = ["-m", "16"]
+[workspace]
+members = [
+    "simple_boot"
+]
 
 [dependencies]
-bootloader = "0.9.18"
+bootloader = "0.10.8"
